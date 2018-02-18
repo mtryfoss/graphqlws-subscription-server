@@ -9,11 +9,11 @@ import (
 )
 
 type Server struct {
-	Port int
+	Port uint
 	Mux  *http.ServeMux
 }
 
-func NewServer(port int) *Server {
+func NewServer(port uint) *Server {
 	return &Server{
 		Port: port,
 		Mux:  http.NewServeMux(),
@@ -26,7 +26,7 @@ func (s *Server) RegisterHandle(path string, h http.Handler) {
 
 func (s *Server) Start(ctx context.Context) {
 	srv := &http.Server{
-		Addr:    ":" + strconv.Itoa(s.Port),
+		Addr:    ":" + strconv.Itoa(int(s.Port)),
 		Handler: s.Mux,
 	}
 
