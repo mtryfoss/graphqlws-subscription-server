@@ -7,7 +7,8 @@ import (
 type RegistrationResponse struct{}
 
 func (r *RegistrationResponse) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-
+	w.WriteHeader(200)
+	w.Write([]byte("OK"))
 }
 
 func (h *Handler) NewNotifyChannelHandler() http.Handler {
