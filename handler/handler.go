@@ -2,17 +2,18 @@ package graphqlws_subscription_server
 
 import (
 	"github.com/functionalfoundry/graphqlws"
+	"github.com/graphql-go/graphql"
 )
 
 type Handler struct {
+	schema  *graphql.Schema
 	manager *graphqlws.SubscriptionManager
-	secret  string
 }
 
-func NewHandler(manager *graphqlws.SubscriptionManager, secretkey string) *Handler {
-	return &Handler{manager: manager, secret: secretkey}
-}
-
-func (h *Handler) AuthSecretKey() string {
-	return h.secret
+func NewHandler(schema *graphql.Schema) *Handler {
+	manager := graphqlws.NewSubscriptionManager(schema)
+	return &Handler{
+		schema:  schema,
+		manager: &manager,
+	}
 }

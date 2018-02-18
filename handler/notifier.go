@@ -4,17 +4,26 @@ import (
 	"net/http"
 )
 
-type RegistrationResponse struct{}
+type ChannelNotification struct {
+}
 
-func (r *RegistrationResponse) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+type UsersNotification struct {
+}
+
+func (r *ChannelNotification) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	w.WriteHeader(200)
+	w.Write([]byte("OK"))
+}
+
+func (r *UsersNotification) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(200)
 	w.Write([]byte("OK"))
 }
 
 func (h *Handler) NewNotifyChannelHandler() http.Handler {
-	return &RegistrationResponse{}
+	return &ChannelNotification{}
 }
 
 func (h *Handler) NewNotifyUsersHandler() http.Handler {
-	return &RegistrationResponse{}
+	return &UsersNotification{}
 }
