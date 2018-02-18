@@ -4,11 +4,13 @@ import (
 	"sync"
 )
 
+type ConnectionsByID map[string]bool
+
 type Listener struct {
 	channelMapMutex    *sync.RWMutex
 	userMapMutex       *sync.RWMutex
-	connIdByUserMap    map[string]map[string]bool
-	connIdByChannelMap map[string]map[string]bool
+	connIDByUserMap    map[string]ConnectionsByID
+	connIDByChannelMap map[string]ConnectionsByID
 	dummyLabel         string
 }
 
@@ -16,32 +18,30 @@ func NewListener(dummy string) *Listener {
 	return &Listener{
 		channelMapMutex:    &sync.RWMutex{},
 		userMapMutex:       &sync.RWMutex{},
-		connIdByUserMap:    map[string]map[string]bool{},
-		connIdByChannelMap: map[string]map[string]bool{},
+		connIDByUserMap:    map[string]ConnectionsByID{},
+		connIDByChannelMap: map[string]ConnectionsByID{},
 		dummyLabel:         dummy,
 	}
 }
 
-type ConnectionsByChannel map[string]bool
-
 func (l *Listener) Subscribe(channel, connId, userId string) {
 	l.channelMapMutex.RLock()
-	if connList, exists := l.connIdByChannelMap[channel]; exists {
+	if connList, exists := l.connIDByChannelMap[channel]; exists {
 		connList[connId] = true
-		l.connIdByChannelMap[channel] = connList
+		l.connIDByChannelMap[channel] = connList
 	} else {
-		l.connIdByChannelMap[channel] = map[string]bool{connId: true}
+		l.connIDByChannelMap[channel] = ConnectionsByID{connId: true}
 	}
 	l.channelMapMutex.RUnlock()
 	if userId == l.dummyLabel {
 		return
 	}
 	l.userMapMutex.RLock()
-	if connList, exists := l.connIdByUserMap[userId]; exists {
+	if connList, exists := l.connIDByUserMap[userId]; exists {
 		connList[connId] = true
-		l.connIdByUserMap[userId] = connList
+		l.connIDByUserMap[userId] = connList
 	} else {
-		l.connIdByUserMap[userId] = map[string]bool{connId: true}
+		l.connIDByUserMap[userId] = ConnectionsByID{connId: true}
 	}
 	l.userMapMutex.RUnlock()
 }
@@ -51,19 +51,19 @@ func (l *Listener) Unsubscribe(connId, userId string) {
 	connIds := []string{connId}
 	if userId != l.dummyLabel {
 		l.userMapMutex.Lock()
-		for cid, _ := range l.connIdByUserMap[userId] {
+		for cid, _ := range l.connIDByUserMap[userId] {
 			if cid != connId {
 				connIds = append(connIds, cid)
 			}
 		}
-		delete(l.connIdByUserMap, userId)
+		delete(l.connIDByUserMap, userId)
 		l.userMapMutex.Unlock()
 	}
-	for channel, connList := range l.connIdByChannelMap {
+	for channel, connList := range l.connIDByChannelMap {
 		for _, cid := range connIds {
 			delete(connList, cid)
 		}
-		l.connIdByChannelMap[channel] = connList
+		l.connIDByChannelMap[channel] = connList
 	}
 	l.channelMapMutex.Unlock()
 }
@@ -71,7 +71,7 @@ func (l *Listener) Unsubscribe(connId, userId string) {
 func (l *Listener) GetChannelSubscribers(channel string) []string {
 	listenerConns := []string{}
 	l.channelMapMutex.RLock()
-	for cid, _ := range l.connIdByChannelMap[channel] {
+	for cid, _ := range l.connIDByChannelMap[channel] {
 		listenerConns = append(listenerConns, cid)
 	}
 	l.channelMapMutex.RUnlock()
@@ -82,7 +82,7 @@ func (l *Listener) GetUserSubscribers(userIds []string) []string {
 	listenerConns := []string{}
 	l.userMapMutex.RLock()
 	for _, uid := range userIds {
-		for cid, _ := range l.connIdByUserMap[uid] {
+		for cid, _ := range l.connIDByUserMap[uid] {
 			listenerConns = append(listenerConns, cid)
 		}
 	}
