@@ -24,16 +24,16 @@ type Listener struct {
 	schema             *graphql.Schema
 	connIDByUserMap    map[string]*sync.Map
 	connIDByChannelMap map[string]*sync.Map
-	notifyChannelChan  chan *ChannelRequestPayload
-	notifyUserChan     chan *UserRequestPayload
+	notifyChannelChan  chan ChannelRequestPayload
+	notifyUserChan     chan UserRequestPayload
 }
 
 func NewListener(handleCount uint) *Listener {
 	return &Listener{
 		connIDByUserMap:    map[string]*sync.Map{},
 		connIDByChannelMap: map[string]*sync.Map{},
-		notifyChannelChan:  make(chan *ChannelRequestPayload, handleCount),
-		notifyUserChan:     make(chan *UserRequestPayload, handleCount),
+		notifyChannelChan:  make(chan ChannelRequestPayload, handleCount),
+		notifyUserChan:     make(chan UserRequestPayload, handleCount),
 	}
 }
 
@@ -43,11 +43,11 @@ func (l *Listener) BuildManager(schema *graphql.Schema) {
 	l.manager = &m
 }
 
-func (l *Listener) GetChannelNotifierChan() chan *ChannelRequestPayload {
+func (l *Listener) GetChannelNotifierChan() chan ChannelRequestPayload {
 	return l.notifyChannelChan
 }
 
-func (l *Listener) GetUserNotifierChan() chan *UserRequestPayload {
+func (l *Listener) GetUserNotifierChan() chan UserRequestPayload {
 	return l.notifyUserChan
 }
 

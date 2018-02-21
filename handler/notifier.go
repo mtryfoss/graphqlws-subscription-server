@@ -9,18 +9,18 @@ import (
 )
 
 type ChannelNotification struct {
-	notifyChan chan *gss.ChannelRequestPayload
+	notifyChan chan gss.ChannelRequestPayload
 }
 
 type UsersNotification struct {
-	notifyChan chan *gss.UserRequestPayload
+	notifyChan chan gss.UserRequestPayload
 }
 
 func (r *ChannelNotification) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	payload := &gss.ChannelRequestPayload{}
+	payload := gss.ChannelRequestPayload{}
 	bufbody := new(bytes.Buffer)
 	bufbody.ReadFrom(req.Body)
-	err := json.Unmarshal(bufbody.Bytes(), payload)
+	err := json.Unmarshal(bufbody.Bytes(), &payload)
 	if err != nil {
 		w.WriteHeader(400)
 		return
@@ -31,10 +31,10 @@ func (r *ChannelNotification) ServeHTTP(w http.ResponseWriter, req *http.Request
 }
 
 func (r *UsersNotification) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	payload := &gss.UserRequestPayload{}
+	payload := gss.UserRequestPayload{}
 	bufbody := new(bytes.Buffer)
 	bufbody.ReadFrom(req.Body)
-	err := json.Unmarshal(bufbody.Bytes(), payload)
+	err := json.Unmarshal(bufbody.Bytes(), &payload)
 	if err != nil {
 		w.WriteHeader(400)
 		return
@@ -44,10 +44,10 @@ func (r *UsersNotification) ServeHTTP(w http.ResponseWriter, req *http.Request) 
 	w.Write([]byte("OK"))
 }
 
-func (h *Handler) NewNotifyChannelHandler(ch chan *gss.ChannelRequestPayload) http.Handler {
+func (h *Handler) NewNotifyChannelHandler(ch chan gss.ChannelRequestPayload) http.Handler {
 	return &ChannelNotification{notifyChan: ch}
 }
 
-func (h *Handler) NewNotifyUsersHandler(ch chan *gss.UserRequestPayload) http.Handler {
+func (h *Handler) NewNotifyUsersHandler(ch chan gss.UserRequestPayload) http.Handler {
 	return &UsersNotification{notifyChan: ch}
 }
