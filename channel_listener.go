@@ -1,9 +1,11 @@
 package graphqlws_subscription_server
 
 import (
+	"context"
 	"sync"
 
 	"github.com/functionalfoundry/graphqlws"
+	"github.com/graphql-go/graphql"
 )
 
 type ConnectionsByID map[string]bool
@@ -11,6 +13,7 @@ type ConnectionsByID map[string]bool
 type Listener struct {
 	graphqlws.SubscriptionManager
 	manager            *graphqlws.SubscriptionManager
+	schema             *graphql.Schema
 	channelMapMutex    *sync.RWMutex
 	userMapMutex       *sync.RWMutex
 	connIDByUserMap    map[string]ConnectionsByID
@@ -18,9 +21,8 @@ type Listener struct {
 	dummyLabel         string
 }
 
-func NewListener(dummy string, manager *graphqlws.SubscriptionManager) *Listener {
+func NewListener(dummy string) *Listener {
 	return &Listener{
-		manager:            manager,
 		channelMapMutex:    &sync.RWMutex{},
 		userMapMutex:       &sync.RWMutex{},
 		connIDByUserMap:    map[string]ConnectionsByID{},
@@ -29,15 +31,55 @@ func NewListener(dummy string, manager *graphqlws.SubscriptionManager) *Listener
 	}
 }
 
+func (l *Listener) BuildManager(schema *graphql.Schema) {
+	l.schema = schema
+	m := graphqlws.NewSubscriptionManager(schema)
+	l.manager = &m
+}
+
+func bldCtx(flg string, conn graphqlws.Connection) context.Context {
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, flg, true)
+	ctx = context.WithValue(ctx, "connID", conn.ID())
+	ctx = context.WithValue(ctx, "user", conn.User())
+	return ctx
+}
+
+func (l *Listener) doGraphQL(ctx context.Context, s *graphqlws.Subscription) *graphql.Result {
+	return graphql.Do(graphql.Params{
+		Schema:         *l.schema, // The GraphQL schema
+		RequestString:  s.Query,
+		VariableValues: s.Variables,
+		OperationName:  s.OperationName,
+		Context:        ctx,
+	})
+}
+
 func (l *Listener) AddSubscription(conn graphqlws.Connection, s *graphqlws.Subscription) []error {
-	return (*l.manager).AddSubscription(conn, s)
+	result := l.doGraphQL(bldCtx("onSubscribe", conn), s)
+
+	if result.HasErrors() {
+		return graphqlws.ErrorsFromGraphQLErrors(result.Errors)
+	}
+
+	errs := (*l.manager).AddSubscription(conn, s)
+	if errs != nil {
+		return errs
+	}
+
+	return nil
 }
 
 func (l *Listener) RemoveSubscription(conn graphqlws.Connection, s *graphqlws.Subscription) {
+	l.doGraphQL(bldCtx("onUnsubscribe", conn), s)
 	(*l.manager).RemoveSubscription(conn, s)
 }
 
 func (l *Listener) RemoveSubscriptions(conn graphqlws.Connection) {
+	ctx := bldCtx("onUnsubscribe", conn)
+	for _, subscription := range l.Subscriptions()[conn] {
+		l.doGraphQL(ctx, subscription)
+	}
 	(*l.manager).RemoveSubscriptions(conn)
 }
 
