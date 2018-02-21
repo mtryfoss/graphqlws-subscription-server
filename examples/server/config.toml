@@ -1,0 +1,6 @@
+[server]
+port = 18500
+max_handler_count = 4096
+
+[auth]
+secret_key = "hogefuga"
