@@ -2,11 +2,15 @@ package graphqlws_subscription_server
 
 import (
 	"sync"
+
+	"github.com/functionalfoundry/graphqlws"
 )
 
 type ConnectionsByID map[string]bool
 
 type Listener struct {
+	graphqlws.SubscriptionManager
+	manager            *graphqlws.SubscriptionManager
 	channelMapMutex    *sync.RWMutex
 	userMapMutex       *sync.RWMutex
 	connIDByUserMap    map[string]ConnectionsByID
@@ -14,14 +18,31 @@ type Listener struct {
 	dummyLabel         string
 }
 
-func NewListener(dummy string) *Listener {
+func NewListener(dummy string, manager *graphqlws.SubscriptionManager) *Listener {
 	return &Listener{
+		manager:            manager,
 		channelMapMutex:    &sync.RWMutex{},
 		userMapMutex:       &sync.RWMutex{},
 		connIDByUserMap:    map[string]ConnectionsByID{},
 		connIDByChannelMap: map[string]ConnectionsByID{},
 		dummyLabel:         dummy,
 	}
+}
+
+func (l *Listener) AddSubscription(conn graphqlws.Connection, s *graphqlws.Subscription) []error {
+	return (*l.manager).AddSubscription(conn, s)
+}
+
+func (l *Listener) RemoveSubscription(conn graphqlws.Connection, s *graphqlws.Subscription) {
+	(*l.manager).RemoveSubscription(conn, s)
+}
+
+func (l *Listener) RemoveSubscriptions(conn graphqlws.Connection) {
+	(*l.manager).RemoveSubscriptions(conn)
+}
+
+func (l *Listener) Subscriptions() graphqlws.Subscriptions {
+	return (*l.manager).Subscriptions()
 }
 
 func (l *Listener) Subscribe(channel, connId, userId string) {
