@@ -24,7 +24,7 @@ func (s *Server) RegisterHandle(path string, h http.Handler) {
 	s.Mux.Handle(path, h)
 }
 
-func (s *Server) Start(ctx context.Context) {
+func (s *Server) Start(ctx context.Context, wg *sync.WaitGroup) {
 	srv := &http.Server{
 		Addr:    ":" + strconv.Itoa(int(s.Port)),
 		Handler: s.Mux,
@@ -32,17 +32,15 @@ func (s *Server) Start(ctx context.Context) {
 
 	log.Println("Starting subscription server on " + srv.Addr)
 
-	syncWait := &sync.WaitGroup{}
-	syncWait.Add(1)
+	wg.Add(2)
 	go func() {
-		defer syncWait.Done()
+		defer wg.Done()
 		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
 			log.Fatal(err)
 		}
 	}()
-	syncWait.Add(1)
 	go func() {
-		defer syncWait.Done()
+		defer wg.Done()
 		for {
 			select {
 			case <-ctx.Done():
@@ -53,5 +51,4 @@ func (s *Server) Start(ctx context.Context) {
 			}
 		}
 	}()
-	syncWait.Wait()
 }

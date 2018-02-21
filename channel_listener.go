@@ -8,7 +8,15 @@ import (
 	"github.com/graphql-go/graphql"
 )
 
-type ConnectionsByID map[string]bool
+type ChannelRequestPayload struct {
+	Channel string      `json:"channel"`
+	Payload interface{} `json:"payload"`
+}
+
+type UserRequestPayload struct {
+	Users   []string    `json:"users"`
+	Payload interface{} `json:"payload"`
+}
 
 type Listener struct {
 	graphqlws.SubscriptionManager
@@ -16,12 +24,16 @@ type Listener struct {
 	schema             *graphql.Schema
 	connIDByUserMap    map[string]*sync.Map
 	connIDByChannelMap map[string]*sync.Map
+	notifyChannelChan  chan interface{}
+	notifyUserChan     chan interface{}
 }
 
-func NewListener() *Listener {
+func NewListener(handleCount uint) *Listener {
 	return &Listener{
 		connIDByUserMap:    map[string]*sync.Map{},
 		connIDByChannelMap: map[string]*sync.Map{},
+		notifyChannelChan:  make(chan interface{}, handleCount),
+		notifyUserChan:     make(chan interface{}, handleCount),
 	}
 }
 
@@ -31,15 +43,15 @@ func (l *Listener) BuildManager(schema *graphql.Schema) {
 	l.manager = &m
 }
 
-func bldCtx(eventName string, conn graphqlws.Connection) context.Context {
+func BuildCtx(eventName, eventVal interface{}, conn graphqlws.Connection) context.Context {
 	ctx := context.Background()
-	ctx = context.WithValue(ctx, eventName, true)
+	ctx = context.WithValue(ctx, eventName, eventVal)
 	ctx = context.WithValue(ctx, "connID", conn.ID())
 	ctx = context.WithValue(ctx, "user", conn.User())
 	return ctx
 }
 
-func (l *Listener) doGraphQL(ctx context.Context, s *graphqlws.Subscription) *graphql.Result {
+func (l *Listener) DoGraphQL(ctx context.Context, s *graphqlws.Subscription) *graphql.Result {
 	return graphql.Do(graphql.Params{
 		Schema:         *l.schema, // The GraphQL schema
 		RequestString:  s.Query,
@@ -50,7 +62,7 @@ func (l *Listener) doGraphQL(ctx context.Context, s *graphqlws.Subscription) *gr
 }
 
 func (l *Listener) AddSubscription(conn graphqlws.Connection, s *graphqlws.Subscription) []error {
-	result := l.doGraphQL(bldCtx("onSubscribe", conn), s)
+	result := l.DoGraphQL(BuildCtx("onSubscribe", true, conn), s)
 
 	if result.HasErrors() {
 		return graphqlws.ErrorsFromGraphQLErrors(result.Errors)
@@ -65,14 +77,14 @@ func (l *Listener) AddSubscription(conn graphqlws.Connection, s *graphqlws.Subsc
 }
 
 func (l *Listener) RemoveSubscription(conn graphqlws.Connection, s *graphqlws.Subscription) {
-	l.doGraphQL(bldCtx("onUnsubscribe", conn), s)
+	l.DoGraphQL(BuildCtx("onUnsubscribe", true, conn), s)
 	(*l.manager).RemoveSubscription(conn, s)
 }
 
 func (l *Listener) RemoveSubscriptions(conn graphqlws.Connection) {
-	ctx := bldCtx("onUnsubscribe", conn)
+	ctx := BuildCtx("onUnsubscribe", true, conn)
 	for _, subscription := range l.Subscriptions()[conn] {
-		l.doGraphQL(ctx, subscription)
+		l.DoGraphQL(ctx, subscription)
 	}
 	(*l.manager).RemoveSubscriptions(conn)
 }
@@ -155,4 +167,37 @@ func (l *Listener) GetUserSubscriptions(userIds []string) graphqlws.Subscription
 		}
 	}
 	return subscriptions
+}
+
+func (l *Listener) Start(ctx context.Context, wg *sync.WaitGroup) {
+	sendData := func(subscriptions graphqlws.Subscriptions, payload interface{}) {
+		for conn := range subscriptions {
+			for _, subscription := range subscriptions[conn] {
+				res := l.DoGraphQL(BuildCtx("payload", payload, conn), subscription)
+				d := &graphqlws.DataMessagePayload{
+					Data: res.Data,
+				}
+				if res.HasErrors() {
+					d.Errors = graphqlws.ErrorsFromGraphQLErrors(res.Errors)
+				}
+				subscription.SendData(d)
+			}
+		}
+	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case r := <-l.notifyChannelChan:
+				payload := r.(ChannelRequestPayload)
+				sendData(l.GetChannelSubscriptions(payload.Channel), payload.Payload)
+			case r := <-l.notifyUserChan:
+				payload := r.(UserRequestPayload)
+				sendData(l.GetUserSubscriptions(payload.Users), payload.Payload)
+			}
+		}
+	}()
 }

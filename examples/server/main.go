@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"log"
+	"sync"
 
 	"github.com/graphql-go/graphql"
 	gss "github.com/taiyoh/graphqlws-subscription-server"
@@ -20,7 +21,7 @@ func main() {
 		log.Fatalln("conf load error")
 	}
 
-	listener := gss.NewListener()
+	listener := gss.NewListener(conf.Server.MaxHandlerCount)
 
 	fields := graphql.Fields{}
 	types := []gss.GraphQLType{NewComment()}
@@ -42,9 +43,12 @@ func main() {
 	listener.BuildManager(&schema)
 
 	ctx := context.Background()
+	wg := &sync.WaitGroup{}
 
 	server := gss.NewServer(conf.Server)
 	handler := gss_handler.NewHandler(listener)
+
+	listener.Start(ctx, wg)
 
 	authCallback := AuthenticateCallback(conf.Auth.SecretKey)
 
@@ -52,5 +56,7 @@ func main() {
 	server.RegisterHandle("/notify_channel", handler.NewNotifyChannelHandler())
 	server.RegisterHandle("/notify_users", handler.NewNotifyUsersHandler())
 
-	server.Start(ctx)
+	server.Start(ctx, wg)
+
+	wg.Wait()
 }
