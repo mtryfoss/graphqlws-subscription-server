@@ -1,17 +1,13 @@
 package graphqlws_subscription_server
 
-import (
-	"github.com/graphql-go/graphql"
-)
+import gss "github.com/taiyoh/graphqlws-subscription-server"
 
 type Handler struct {
-	schema   *graphql.Schema
-	listener *Listener
+	listener *gss.Listener
 }
 
-func NewHandler(listener *Listener) *Handler {
+func NewHandler(listener *gss.Listener) *Handler {
 	return &Handler{
-		schema:   schema,
 		listener: listener,
 	}
 }
