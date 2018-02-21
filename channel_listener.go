@@ -8,32 +8,18 @@ import (
 	"github.com/graphql-go/graphql"
 )
 
-type ChannelRequestPayload struct {
-	Channel string      `json:"channel"`
-	Payload interface{} `json:"payload"`
-}
-
-type UserRequestPayload struct {
-	Users   []string    `json:"users"`
-	Payload interface{} `json:"payload"`
-}
-
 type Listener struct {
 	graphqlws.SubscriptionManager
 	manager            *graphqlws.SubscriptionManager
 	schema             *graphql.Schema
 	connIDByUserMap    map[string]*sync.Map
 	connIDByChannelMap map[string]*sync.Map
-	notifyChannelChan  chan ChannelRequestPayload
-	notifyUserChan     chan UserRequestPayload
 }
 
-func NewListener(handleCount uint) *Listener {
+func NewListener() *Listener {
 	return &Listener{
 		connIDByUserMap:    map[string]*sync.Map{},
 		connIDByChannelMap: map[string]*sync.Map{},
-		notifyChannelChan:  make(chan ChannelRequestPayload, handleCount),
-		notifyUserChan:     make(chan UserRequestPayload, handleCount),
 	}
 }
 
@@ -41,14 +27,6 @@ func (l *Listener) BuildManager(schema *graphql.Schema) {
 	l.schema = schema
 	m := graphqlws.NewSubscriptionManager(schema)
 	l.manager = &m
-}
-
-func (l *Listener) GetChannelNotifierChan() chan ChannelRequestPayload {
-	return l.notifyChannelChan
-}
-
-func (l *Listener) GetUserNotifierChan() chan UserRequestPayload {
-	return l.notifyUserChan
 }
 
 func BuildCtx(eventName, eventVal interface{}, conn graphqlws.Connection) context.Context {
@@ -175,35 +153,4 @@ func (l *Listener) GetUserSubscriptions(userIds []string) graphqlws.Subscription
 		}
 	}
 	return subscriptions
-}
-
-func (l *Listener) Start(ctx context.Context, wg *sync.WaitGroup) {
-	sendData := func(subscriptions graphqlws.Subscriptions, payload interface{}) {
-		for conn := range subscriptions {
-			for _, subscription := range subscriptions[conn] {
-				res := l.DoGraphQL(BuildCtx("payload", payload, conn), subscription)
-				d := &graphqlws.DataMessagePayload{
-					Data: res.Data,
-				}
-				if res.HasErrors() {
-					d.Errors = graphqlws.ErrorsFromGraphQLErrors(res.Errors)
-				}
-				subscription.SendData(d)
-			}
-		}
-	}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case payload := <-l.notifyChannelChan:
-				sendData(l.GetChannelSubscriptions(payload.Channel), payload.Payload)
-			case payload := <-l.notifyUserChan:
-				sendData(l.GetUserSubscriptions(payload.Users), payload.Payload)
-			}
-		}
-	}()
 }

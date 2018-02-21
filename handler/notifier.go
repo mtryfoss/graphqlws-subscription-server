@@ -9,45 +9,56 @@ import (
 )
 
 type ChannelNotification struct {
-	notifyChan chan gss.ChannelRequestPayload
+	notifyChan chan gss.ChannelRequestData
 }
 
 type UsersNotification struct {
-	notifyChan chan gss.UserRequestPayload
+	notifyChan chan gss.UserRequestData
 }
 
 func (r *ChannelNotification) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	payload := gss.ChannelRequestPayload{}
-	bufbody := new(bytes.Buffer)
-	bufbody.ReadFrom(req.Body)
-	err := json.Unmarshal(bufbody.Bytes(), &payload)
-	if err != nil {
+	data := gss.ChannelRequestData{}
+	if contentType := req.Header.Get("Content-type"); contentType != "application/json" {
 		w.WriteHeader(400)
+		w.Write([]byte("Content-type requires application/json"))
 		return
 	}
-	r.notifyChan <- payload
+	bufbody := new(bytes.Buffer)
+	bufbody.ReadFrom(req.Body)
+	err := json.Unmarshal(bufbody.Bytes(), &data)
+	if err != nil {
+		w.WriteHeader(400)
+		w.Write([]byte("OK"))
+		return
+	}
+	r.notifyChan <- data
 	w.WriteHeader(200)
 	w.Write([]byte("OK"))
 }
 
 func (r *UsersNotification) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	payload := gss.UserRequestPayload{}
+	data := gss.UserRequestData{}
+	if contentType := req.Header.Get("Content-type"); contentType != "application/json" {
+		w.WriteHeader(400)
+		w.Write([]byte("Content-type requires application/json"))
+		return
+	}
 	bufbody := new(bytes.Buffer)
 	bufbody.ReadFrom(req.Body)
-	err := json.Unmarshal(bufbody.Bytes(), &payload)
+	err := json.Unmarshal(bufbody.Bytes(), &data)
 	if err != nil {
 		w.WriteHeader(400)
 		return
 	}
-	r.notifyChan <- payload
+	r.notifyChan <- data
 	w.WriteHeader(200)
 	w.Write([]byte("OK"))
 }
 
-func (h *Handler) NewNotifyChannelHandler(ch chan gss.ChannelRequestPayload) http.Handler {
+func (h *Handler) NewNotifyChannelHandler(ch chan gss.ChannelRequestData) http.Handler {
 	return &ChannelNotification{notifyChan: ch}
 }
 
-func (h *Handler) NewNotifyUsersHandler(ch chan gss.UserRequestPayload) http.Handler {
+func (h *Handler) NewNotifyUsersHandler(ch chan gss.UserRequestData) http.Handler {
 	return &UsersNotification{notifyChan: ch}
 }

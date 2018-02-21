@@ -21,7 +21,7 @@ func main() {
 		log.Fatalln("conf load error")
 	}
 
-	listener := gss.NewListener(conf.Server.MaxHandlerCount)
+	listener := gss.NewListener()
 
 	fields := graphql.Fields{}
 	types := []gss.GraphQLType{NewComment()}
@@ -48,13 +48,14 @@ func main() {
 	server := gss.NewServer(conf.Server)
 	handler := gss_handler.NewHandler(listener)
 
-	listener.Start(ctx, wg)
+	receiver := gss.NewReceiver(conf.Server.MaxHandlerCount)
+	receiver.Start(ctx, wg, listener)
 
 	authCallback := AuthenticateCallback(conf.Auth.SecretKey)
 
 	server.RegisterHandle("/subscription", handler.NewWebsocketHandler(authCallback))
-	server.RegisterHandle("/notify_channel", handler.NewNotifyChannelHandler(listener.GetChannelNotifierChan()))
-	server.RegisterHandle("/notify_users", handler.NewNotifyUsersHandler(listener.GetUserNotifierChan()))
+	server.RegisterHandle("/notify_channel", handler.NewNotifyChannelHandler(receiver.GetChannelNotifierChan()))
+	server.RegisterHandle("/notify_users", handler.NewNotifyUsersHandler(receiver.GetUserNotifierChan()))
 
 	server.Start(ctx, wg)
 
