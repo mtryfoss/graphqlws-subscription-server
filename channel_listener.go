@@ -112,9 +112,17 @@ func (l *Listener) Unsubscribe(connId, userId string) {
 		})
 		delete(l.connIDByUserMap, userId)
 	}
-	for _, connList := range l.connIDByChannelMap {
+	for chname, connList := range l.connIDByChannelMap {
 		for _, cid := range connIds {
 			connList.Delete(cid)
+		}
+		cnt := 0
+		connList.Range(func(k, v interface{}) bool {
+			cnt++
+			return false
+		})
+		if cnt == 0 {
+			delete(l.connIDByChannelMap, chname)
 		}
 	}
 }
