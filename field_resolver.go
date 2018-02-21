@@ -11,6 +11,8 @@ type GraphQLType interface {
 	OnSubscribe(graphql.ResolveParams, *Listener) (interface{}, error)
 	OnUnsubscribe(graphql.ResolveParams, *Listener) (interface{}, error)
 	GetField(*Listener) *graphql.Field
+	GetType() *graphql.ObjectConfig
+	GetArgs() map[string]*graphql.ArgumentConfig
 	FieldName() string
 }
 
@@ -23,17 +25,25 @@ func (t *GraphQLTypeImpl) FieldName() string {
 	return t.fieldName
 }
 
-func (t *GraphQLTypeImpl) GetResolve(l *Listener) func(p graphql.ResolveParams) (interface{}, error) {
-	return func(p graphql.ResolveParams) (interface{}, error) {
-		if payload := p.Context.Value("payload"); payload != nil { // payload exists
-			return t.OnPayload(payload, p)
-		}
-		if s := p.Context.Value("onSubscribe"); s != nil { // AddSubscription called
-			return t.OnSubscribe(p, l)
-		}
-		if s := p.Context.Value("onUnsubscribe"); s != nil { // removeSubscription called
-			return t.OnUnsubscribe(p, l)
-		}
-		return nil, errors.New("no payload exists")
+func (t *GraphQLTypeImpl) GetField(listener *Listener) *graphql.Field {
+	args := graphql.FieldConfigArgument{}
+	for name, arg := range t.GetArgs() {
+		args[name] = arg
+	}
+	return &graphql.Field{
+		Type: graphql.NewObject(*t.GetType()),
+		Args: args,
+		Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+			if payload := p.Context.Value("payload"); payload != nil { // payload exists
+				return t.OnPayload(payload, p)
+			}
+			if s := p.Context.Value("onSubscribe"); s != nil { // AddSubscription called
+				return t.OnSubscribe(p, listener)
+			}
+			if s := p.Context.Value("onUnsubscribe"); s != nil { // removeSubscription called
+				return t.OnUnsubscribe(p, listener)
+			}
+			return nil, errors.New("no payload exists")
+		},
 	}
 }

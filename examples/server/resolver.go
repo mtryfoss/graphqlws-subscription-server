@@ -19,20 +19,19 @@ func NewComment() *Comment {
 	return &Comment{fieldName: "newComment"}
 }
 
-func (c *Comment) GetField(listener *gss.Listener) *graphql.Field {
-	t := graphql.ObjectConfig{
+func (c *Comment) GetType() *graphql.ObjectConfig {
+	return &graphql.ObjectConfig{
 		Name: "Comment",
 		Fields: graphql.Fields{
 			"id":      &graphql.Field{Type: graphql.NewNonNull(graphql.ID)},
 			"content": &graphql.Field{Type: graphql.NewNonNull(graphql.String)},
 		},
 	}
-	return &graphql.Field{
-		Type: graphql.NewObject(t),
-		Args: graphql.FieldConfigArgument{
-			"roomId": &graphql.ArgumentConfig{Type: graphql.NewNonNull(graphql.ID)},
-		},
-		Resolve: c.GetResolve(listener),
+}
+
+func (c *Comment) GetArgs() map[string]*graphql.ArgumentConfig {
+	return map[string]*graphql.ArgumentConfig{
+		"roomId": &graphql.ArgumentConfig{Type: graphql.NewNonNull(graphql.ID)},
 	}
 }
 
