@@ -9,6 +9,10 @@ type ConnectedUser struct {
 	jwt.StandardClaims
 }
 
+func (u ConnectedUser) Name() string {
+	return u.Subject
+}
+
 func AuthenticateCallback(secretkey string) graphqlws.AuthenticateFunc {
 	return func(tokenstring string) (interface{}, error) {
 		user := ConnectedUser{}
