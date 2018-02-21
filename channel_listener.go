@@ -14,19 +14,15 @@ type Listener struct {
 	graphqlws.SubscriptionManager
 	manager            *graphqlws.SubscriptionManager
 	schema             *graphql.Schema
-	channelMapMutex    *sync.RWMutex
-	userMapMutex       *sync.RWMutex
-	connIDByUserMap    map[string]ConnectionsByID
-	connIDByChannelMap map[string]ConnectionsByID
+	connIDByUserMap    map[string]*sync.Map
+	connIDByChannelMap map[string]*sync.Map
 	dummyLabel         string
 }
 
 func NewListener(dummy string) *Listener {
 	return &Listener{
-		channelMapMutex:    &sync.RWMutex{},
-		userMapMutex:       &sync.RWMutex{},
-		connIDByUserMap:    map[string]ConnectionsByID{},
-		connIDByChannelMap: map[string]ConnectionsByID{},
+		connIDByUserMap:    map[string]*sync.Map{},
+		connIDByChannelMap: map[string]*sync.Map{},
 		dummyLabel:         dummy,
 	}
 }
@@ -88,67 +84,68 @@ func (l *Listener) Subscriptions() graphqlws.Subscriptions {
 }
 
 func (l *Listener) Subscribe(channel, connId, userId string) {
-	l.channelMapMutex.RLock()
 	if connList, exists := l.connIDByChannelMap[channel]; exists {
-		connList[connId] = true
-		l.connIDByChannelMap[channel] = connList
+		connList.Store(connId, true)
 	} else {
-		l.connIDByChannelMap[channel] = ConnectionsByID{connId: true}
+		store := &sync.Map{}
+		store.Store(connId, true)
+		l.connIDByChannelMap[channel] = store
 	}
-	l.channelMapMutex.RUnlock()
 	if userId == l.dummyLabel {
 		return
 	}
-	l.userMapMutex.RLock()
 	if connList, exists := l.connIDByUserMap[userId]; exists {
-		connList[connId] = true
-		l.connIDByUserMap[userId] = connList
+		connList.Store(connId, true)
 	} else {
-		l.connIDByUserMap[userId] = ConnectionsByID{connId: true}
+		store := &sync.Map{}
+		store.Store(connId, true)
+		l.connIDByUserMap[userId] = store
 	}
-	l.userMapMutex.RUnlock()
 }
 
 func (l *Listener) Unsubscribe(connId, userId string) {
-	l.channelMapMutex.Lock()
 	connIds := []string{connId}
-	if userId != l.dummyLabel {
-		l.userMapMutex.Lock()
-		for cid, _ := range l.connIDByUserMap[userId] {
-			if cid != connId {
-				connIds = append(connIds, cid)
+	if store, exists := l.connIDByUserMap[userId]; exists {
+		store.Range(func(k, v interface{}) bool {
+			connIds = append(connIds, k.(string))
+			return true
+		})
+		delete(l.connIDByUserMap, userId)
+	}
+	for _, connList := range l.connIDByChannelMap {
+		for _, cid := range connIds {
+			connList.Delete(cid)
+		}
+	}
+}
+
+func (l *Listener) GetChannelSubscriptions(channel string) graphqlws.Subscriptions {
+	subscriptions := graphqlws.Subscriptions{}
+	if connList, exists := l.connIDByChannelMap[channel]; exists {
+		for conn, s := range l.Subscriptions() {
+			if _, ok := connList.Load(conn.ID()); ok {
+				subscriptions[conn] = s
 			}
 		}
-		delete(l.connIDByUserMap, userId)
-		l.userMapMutex.Unlock()
 	}
-	for channel, connList := range l.connIDByChannelMap {
-		for _, cid := range connIds {
-			delete(connList, cid)
-		}
-		l.connIDByChannelMap[channel] = connList
-	}
-	l.channelMapMutex.Unlock()
+	return subscriptions
 }
 
-func (l *Listener) GetChannelSubscribers(channel string) []string {
-	listenerConns := []string{}
-	l.channelMapMutex.RLock()
-	for cid, _ := range l.connIDByChannelMap[channel] {
-		listenerConns = append(listenerConns, cid)
-	}
-	l.channelMapMutex.RUnlock()
-	return listenerConns
-}
-
-func (l *Listener) GetUserSubscribers(userIds []string) []string {
-	listenerConns := []string{}
-	l.userMapMutex.RLock()
+func (l *Listener) GetUserSubscriptions(userIds []string) graphqlws.Subscriptions {
+	subscriptions := graphqlws.Subscriptions{}
+	connIds := map[string]bool{}
 	for _, uid := range userIds {
-		for cid, _ := range l.connIDByUserMap[uid] {
-			listenerConns = append(listenerConns, cid)
+		if connList, exists := l.connIDByUserMap[uid]; exists {
+			connList.Range(func(k, v interface{}) bool {
+				connIds[k.(string)] = true
+				return true
+			})
 		}
 	}
-	l.userMapMutex.RUnlock()
-	return listenerConns
+	for conn, s := range l.Subscriptions() {
+		if _, exists := connIds[conn.ID()]; exists {
+			subscriptions[conn] = s
+		}
+	}
+	return subscriptions
 }
