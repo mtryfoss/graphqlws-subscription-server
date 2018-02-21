@@ -24,16 +24,16 @@ type Listener struct {
 	schema             *graphql.Schema
 	connIDByUserMap    map[string]*sync.Map
 	connIDByChannelMap map[string]*sync.Map
-	notifyChannelChan  chan interface{}
-	notifyUserChan     chan interface{}
+	notifyChannelChan  chan *ChannelRequestPayload
+	notifyUserChan     chan *UserRequestPayload
 }
 
 func NewListener(handleCount uint) *Listener {
 	return &Listener{
 		connIDByUserMap:    map[string]*sync.Map{},
 		connIDByChannelMap: map[string]*sync.Map{},
-		notifyChannelChan:  make(chan interface{}, handleCount),
-		notifyUserChan:     make(chan interface{}, handleCount),
+		notifyChannelChan:  make(chan *ChannelRequestPayload, handleCount),
+		notifyUserChan:     make(chan *UserRequestPayload, handleCount),
 	}
 }
 
@@ -41,6 +41,14 @@ func (l *Listener) BuildManager(schema *graphql.Schema) {
 	l.schema = schema
 	m := graphqlws.NewSubscriptionManager(schema)
 	l.manager = &m
+}
+
+func (l *Listener) GetChannelNotifierChan() chan *ChannelRequestPayload {
+	return l.notifyChannelChan
+}
+
+func (l *Listener) GetUserNotifierChan() chan *UserRequestPayload {
+	return l.notifyUserChan
 }
 
 func BuildCtx(eventName, eventVal interface{}, conn graphqlws.Connection) context.Context {
@@ -191,11 +199,9 @@ func (l *Listener) Start(ctx context.Context, wg *sync.WaitGroup) {
 			select {
 			case <-ctx.Done():
 				return
-			case r := <-l.notifyChannelChan:
-				payload := r.(ChannelRequestPayload)
+			case payload := <-l.notifyChannelChan:
 				sendData(l.GetChannelSubscriptions(payload.Channel), payload.Payload)
-			case r := <-l.notifyUserChan:
-				payload := r.(UserRequestPayload)
+			case payload := <-l.notifyUserChan:
 				sendData(l.GetUserSubscriptions(payload.Users), payload.Payload)
 			}
 		}
