@@ -13,8 +13,7 @@ type ServerConf struct {
 }
 
 type AuthConf struct {
-	SecretKey   string `toml:"secret_key"`
-	DummyUserID string `toml:"dummy_user_id"`
+	SecretKey string `toml:"secret_key"`
 }
 
 func NewConf(path string) (*Conf, error) {

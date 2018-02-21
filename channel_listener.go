@@ -16,14 +16,12 @@ type Listener struct {
 	schema             *graphql.Schema
 	connIDByUserMap    map[string]*sync.Map
 	connIDByChannelMap map[string]*sync.Map
-	dummyLabel         string
 }
 
-func NewListener(dummy string) *Listener {
+func NewListener() *Listener {
 	return &Listener{
 		connIDByUserMap:    map[string]*sync.Map{},
 		connIDByChannelMap: map[string]*sync.Map{},
-		dummyLabel:         dummy,
 	}
 }
 
@@ -33,9 +31,9 @@ func (l *Listener) BuildManager(schema *graphql.Schema) {
 	l.manager = &m
 }
 
-func bldCtx(flg string, conn graphqlws.Connection) context.Context {
+func bldCtx(eventName string, conn graphqlws.Connection) context.Context {
 	ctx := context.Background()
-	ctx = context.WithValue(ctx, flg, true)
+	ctx = context.WithValue(ctx, eventName, true)
 	ctx = context.WithValue(ctx, "connID", conn.ID())
 	ctx = context.WithValue(ctx, "user", conn.User())
 	return ctx
@@ -91,9 +89,6 @@ func (l *Listener) Subscribe(channel, connId, userId string) {
 		store.Store(connId, true)
 		l.connIDByChannelMap[channel] = store
 	}
-	if userId == l.dummyLabel {
-		return
-	}
 	if connList, exists := l.connIDByUserMap[userId]; exists {
 		connList.Store(connId, true)
 	} else {
@@ -101,6 +96,15 @@ func (l *Listener) Subscribe(channel, connId, userId string) {
 		store.Store(connId, true)
 		l.connIDByUserMap[userId] = store
 	}
+}
+
+func keyExists(m *sync.Map) bool {
+	cnt := 0
+	m.Range(func(k, v interface{}) bool {
+		cnt++
+		return false
+	})
+	return cnt > 0
 }
 
 func (l *Listener) Unsubscribe(connId, userId string) {
@@ -112,16 +116,11 @@ func (l *Listener) Unsubscribe(connId, userId string) {
 		})
 		delete(l.connIDByUserMap, userId)
 	}
-	for chname, connList := range l.connIDByChannelMap {
+	for chname, store := range l.connIDByChannelMap {
 		for _, cid := range connIds {
-			connList.Delete(cid)
+			store.Delete(cid)
 		}
-		cnt := 0
-		connList.Range(func(k, v interface{}) bool {
-			cnt++
-			return false
-		})
-		if cnt == 0 {
+		if !keyExists(store) {
 			delete(l.connIDByChannelMap, chname)
 		}
 	}

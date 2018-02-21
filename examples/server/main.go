@@ -20,7 +20,7 @@ func main() {
 		log.Fatalln("conf load error")
 	}
 
-	listener := gss.NewListener(conf.Auth.DummyUserID)
+	listener := gss.NewListener()
 
 	fields := graphql.Fields{}
 	types := []gss.GraphQLType{NewComment()}
