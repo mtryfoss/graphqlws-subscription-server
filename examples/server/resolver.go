@@ -1,9 +1,6 @@
 package main
 
 import (
-	"context"
-	"errors"
-
 	"github.com/graphql-go/graphql"
 	gss "github.com/taiyoh/graphqlws-subscription-server"
 )
@@ -14,11 +11,11 @@ type SampleComment struct {
 }
 
 type Comment struct {
-	GraphQLTypeImpl	
-	fieldName: string
+	gss.GraphQLTypeImpl
+	fieldName string
 }
 
-type NewComment() *CommentResolver {
+func NewComment() *Comment {
 	return &Comment{fieldName: "newComment"}
 }
 
@@ -35,27 +32,27 @@ func (c *Comment) GetField(listener *gss.Listener) *graphql.Field {
 		Args: graphql.FieldConfigArgument{
 			"roomId": &graphql.ArgumentConfig{Type: graphql.NewNonNull(graphql.ID)},
 		},
-		Resolve: r.GetResolve(listener),
+		Resolve: c.GetResolve(listener),
 	}
 }
 
-func (c *Comment) OnPayload(payload interface{}, ctx context.Context) (interface{}, error) {
+func (c *Comment) OnPayload(payload interface{}, p graphql.ResolveParams) (interface{}, error) {
 	comment := payload.(SampleComment)
 	return comment, nil
 }
 
-func (c *Comment) OnSubscribe(ctx context.Context, listener *gss.Listener) (interface{}, error) {
+func (c *Comment) OnSubscribe(p graphql.ResolveParams, listener *gss.Listener) (interface{}, error) {
 	user := p.Context.Value("user").(ConnectedUser)
-	connID := string(p.Context.Value("connID"))
-	channelName := r.fieldName + ":" + string(p.Args["roomId"])
+	connID := p.Context.Value("connID").(string)
+	channelName := c.FieldName() + ":" + p.Args["roomId"].(string)
 	listener.Subscribe(channelName, connID, user.Name())
 	dummyComment := &SampleComment{"ping", "ping"}
 	return dummyComment, nil
 }
 
-func (c *Comment) OnUnsubscribe(ctx context.Context, listener *gss.Listener) (interface{}, error) {
+func (c *Comment) OnUnsubscribe(p graphql.ResolveParams, listener *gss.Listener) (interface{}, error) {
 	user := p.Context.Value("user").(ConnectedUser)
-	connID := string(p.Context.Value("connID"))
+	connID := p.Context.Value("connID").(string)
 	listener.Unsubscribe(connID, user.Name())
 	dummyComment := &SampleComment{"ping", "ping"}
 	return dummyComment, nil

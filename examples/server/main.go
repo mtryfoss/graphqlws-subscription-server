@@ -5,6 +5,7 @@ import (
 	"flag"
 	"log"
 
+	"github.com/graphql-go/graphql"
 	gss "github.com/taiyoh/graphqlws-subscription-server"
 	gss_handler "github.com/taiyoh/graphqlws-subscription-server/handler"
 )
@@ -20,7 +21,20 @@ func main() {
 	}
 
 	listener := gss.NewListener(conf.Auth.DummyUserID)
-	schema, err := LoadSchema(listener)
+
+	fields := graphql.Fields{}
+	types := []gss.GraphQLType{NewComment()}
+	for _, t := range types {
+		fields[t.FieldName()] = t.GetField(listener)
+	}
+	schema, err := graphql.NewSchema(graphql.SchemaConfig{
+		Subscription: graphql.NewObject(
+			graphql.ObjectConfig{
+				Name:   "RootSubscription",
+				Fields: fields,
+			},
+		),
+	})
 	if err != nil {
 		log.Fatalln("GraphQL schema is invalid")
 	}
