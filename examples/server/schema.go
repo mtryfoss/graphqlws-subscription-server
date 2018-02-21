@@ -10,8 +10,7 @@ func LoadSchema(listener *gss.Listener) (graphql.Schema, error) {
 	fields := graphql.Fields{}
 	resolvers: = []TypeResolver{NewCommentResolver()}
 	for _, resolver := range resolvers {
-		name, field := t.GetField(listener)
-		fields[name] = field
+		fields[t.FieldName()] = t.GetField(listener)
 	}
 	return graphql.NewSchema(graphql.SchemaConfig{
 		Subscription: graphql.NewObject(
