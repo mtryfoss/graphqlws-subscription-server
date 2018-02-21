@@ -22,6 +22,7 @@ type TypeResolver interface {
 
 type typeResolver struct {
 	TypeResolver
+	fieldName string
 }
 
 func (r *typeResolver) GetResolve(listener, *gss.Listener) func(p graphql.ResolveParams) (interface{}, error) {
@@ -44,7 +45,7 @@ type CommentResolver struct {
 }
 
 type NewCommentResolver() *CommentResolver {
-	return &CommentResolver{}
+	return &CommentResolver{fieldName: "newComment"}
 }
 
 func (r *CommentResolver) GetField(listener *gss.Listener) (string, *graphql.Field) {
@@ -62,7 +63,7 @@ func (r *CommentResolver) GetField(listener *gss.Listener) (string, *graphql.Fie
 		},
 		Resolve: r.GetResolve(listener),
 	}
-	return "newComment", field
+	return r.fieldName, field
 }
 
 func (r *CommentResolver) OnPayload(payload interface{}, ctx context.Context) (interface{}, error) {
@@ -73,7 +74,7 @@ func (r *CommentResolver) OnPayload(payload interface{}, ctx context.Context) (i
 func (r *CommentResolver) OnSubscribe(ctx context.Context, listener *gss.Listener) (interface{}, error) {
 	user := p.Context.Value("user").(ConnectedUser)
 	connID := string(p.Context.Value("connID"))
-	channelName := "newComment:" + string(p.Args["roomId"])
+	channelName := r.fieldName + ":" + string(p.Args["roomId"])
 	listener.Subscribe(channelName, connID, user.Name())
 	dummyComment := &SampleComment{"ping", "ping"}
 	return dummyComment, nil
