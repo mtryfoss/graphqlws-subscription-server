@@ -11,7 +11,7 @@ type GraphQLType interface {
 	OnSubscribe(graphql.ResolveParams, *Listener) (interface{}, error)
 	OnUnsubscribe(graphql.ResolveParams, *Listener) (interface{}, error)
 	GetField(*Listener) *graphql.Field
-	GetType() *graphql.ObjectConfig
+	GetType() graphql.ObjectConfig
 	GetArgs() map[string]*graphql.ArgumentConfig
 	FieldName() string
 }
@@ -31,7 +31,7 @@ func (t *GraphQLTypeImpl) GetField(listener *Listener) *graphql.Field {
 		args[name] = arg
 	}
 	return &graphql.Field{
-		Type: graphql.NewObject(*t.GetType()),
+		Type: graphql.NewObject(t.GetType()),
 		Args: args,
 		Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 			if payload := p.Context.Value("payload"); payload != nil { // payload exists

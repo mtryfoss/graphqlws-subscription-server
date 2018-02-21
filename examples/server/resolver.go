@@ -19,8 +19,8 @@ func NewComment() *Comment {
 	return &Comment{fieldName: "newComment"}
 }
 
-func (c *Comment) GetType() *graphql.ObjectConfig {
-	return &graphql.ObjectConfig{
+func (c *Comment) GetType() graphql.ObjectConfig {
+	return graphql.ObjectConfig{
 		Name: "Comment",
 		Fields: graphql.Fields{
 			"id":      &graphql.Field{Type: graphql.NewNonNull(graphql.ID)},
