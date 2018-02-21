@@ -20,18 +20,21 @@ func main() {
 	}
 
 	listener := gss.NewListener(conf.Auth.DummyUserID)
-
 	schema, err := LoadSchema(listener)
 	if err != nil {
 		log.Fatalln("GraphQL schema is invalid")
 	}
 
+	listener.BuildManager(&schema)
+
 	ctx := context.Background()
 
 	server := gss.NewServer(conf.Server)
-	handler := gss_handler.NewHandler(&schema)
+	handler := gss_handler.NewHandler(listener)
 
-	server.RegisterHandle("/subscription", handler.NewWebsocketHandler(AuthenticateCallback(conf.Auth.SecretKey)))
+	authCallback := AuthenticateCallback(conf.Auth.SecretKey)
+
+	server.RegisterHandle("/subscription", handler.NewWebsocketHandler(authCallback))
 	server.RegisterHandle("/notify_channel", handler.NewNotifyChannelHandler())
 	server.RegisterHandle("/notify_users", handler.NewNotifyUsersHandler())
 
