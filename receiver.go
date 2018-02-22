@@ -2,6 +2,7 @@ package graphqlws_subscription_server
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"sync"
 
@@ -22,6 +23,17 @@ func (d *RequestData) Validate() error {
 		return errors.New("require payload")
 	}
 	return nil
+}
+
+func NewRequestDataFromBytes(b []byte) (*RequestData, error) {
+	data := &RequestData{}
+	if err := json.Unmarshal(b, data); err != nil {
+		return nil, errors.New("cannot parse invalid JSON request data.")
+	}
+	if err := data.Validate(); err != nil {
+		return nil, err
+	}
+	return data, nil
 }
 
 type Receiver struct {
