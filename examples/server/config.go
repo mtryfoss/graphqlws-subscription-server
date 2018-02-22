@@ -1,4 +1,4 @@
-package graphqlws_subscription_server
+package main
 
 import toml "github.com/pelletier/go-toml"
 

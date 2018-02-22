@@ -16,7 +16,7 @@ func main() {
 	flag.StringVar(&confPath, "config", "config.toml", "config path")
 	flag.Parse()
 
-	conf, err := gss.NewConf(confPath)
+	conf, err := NewConf(confPath)
 	if err != nil {
 		log.Fatalln("conf load error")
 	}
@@ -45,7 +45,7 @@ func main() {
 	ctx := context.Background()
 	wg := &sync.WaitGroup{}
 
-	server := gss.NewServer(conf.Server)
+	server := gss.NewServer(conf.Server.Port)
 	handler := gss_handler.NewHandler(listener)
 
 	receiver := gss.NewReceiver(conf.Server.MaxHandlerCount)

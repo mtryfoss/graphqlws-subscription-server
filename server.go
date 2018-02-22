@@ -13,9 +13,9 @@ type Server struct {
 	Mux  *http.ServeMux
 }
 
-func NewServer(conf ServerConf) *Server {
+func NewServer(port uint) *Server {
 	return &Server{
-		Port: conf.Port,
+		Port: port,
 		Mux:  http.NewServeMux(),
 	}
 }
