@@ -2,51 +2,40 @@ package graphqlws_subscription_server
 
 import (
 	"context"
+	"errors"
 	"sync"
 
 	"github.com/functionalfoundry/graphqlws"
 )
 
-type ChannelRequestData struct {
-	Channel string      `json:"channel"`
-	payload interface{} `json:"payload"`
-}
-
-type UserRequestData struct {
+type RequestData struct {
 	Users   []string    `json:"users"`
-	payload interface{} `json:"payload"`
+	Channel string      `json:"channel"`
+	Payload interface{} `json:"payload"`
 }
 
-func (p *ChannelRequestData) Payload() interface{} {
-	return p.payload
-}
-
-func (p *UserRequestData) Payload() interface{} {
-	return p.payload
-}
-
-type NotifyRequestData interface {
-	Payload() interface{}
+func (d *RequestData) Validate() error {
+	if d.Channel == "" {
+		return errors.New("require channel")
+	}
+	if d.Payload == nil {
+		return errors.New("require payload")
+	}
+	return nil
 }
 
 type Receiver struct {
-	notifyChannelChan chan ChannelRequestData
-	notifyUserChan    chan UserRequestData
+	notifyChan chan *RequestData
 }
 
 func NewReceiver(handleCount uint) *Receiver {
 	return &Receiver{
-		notifyChannelChan: make(chan ChannelRequestData, handleCount),
-		notifyUserChan:    make(chan UserRequestData, handleCount),
+		notifyChan: make(chan *RequestData, handleCount),
 	}
 }
 
-func (r *Receiver) GetChannelNotifierChan() chan ChannelRequestData {
-	return r.notifyChannelChan
-}
-
-func (r *Receiver) GetUserNotifierChan() chan UserRequestData {
-	return r.notifyUserChan
+func (r *Receiver) GetNotifierChan() chan *RequestData {
+	return r.notifyChan
 }
 
 func (r *Receiver) Start(ctx context.Context, wg *sync.WaitGroup, l *Listener) {
@@ -71,10 +60,12 @@ func (r *Receiver) Start(ctx context.Context, wg *sync.WaitGroup, l *Listener) {
 			select {
 			case <-ctx.Done():
 				return
-			case data := <-r.notifyChannelChan:
-				sendData(l.GetChannelSubscriptions(data.Channel), data.Payload())
-			case data := <-r.notifyUserChan:
-				sendData(l.GetUserSubscriptions(data.Users), data.Payload())
+			case data := <-r.notifyChan:
+				if len(data.Users) > 0 {
+					sendData(l.GetUserSubscriptions(data.Users), data.Payload)
+				} else {
+					sendData(l.GetChannelSubscriptions(data.Channel), data.Payload)
+				}
 			}
 		}
 	}()

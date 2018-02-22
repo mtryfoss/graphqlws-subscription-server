@@ -54,8 +54,7 @@ func main() {
 	authCallback := AuthenticateCallback(conf.Auth.SecretKey)
 
 	server.RegisterHandle("/subscription", handler.NewWebsocketHandler(authCallback))
-	server.RegisterHandle("/notify_channel", handler.NewNotifyChannelHandler(receiver.GetChannelNotifierChan()))
-	server.RegisterHandle("/notify_users", handler.NewNotifyUsersHandler(receiver.GetUserNotifierChan()))
+	server.RegisterHandle("/notify", handler.NewNotifyHandler(receiver.GetNotifierChan()))
 
 	server.Start(ctx, wg)
 
