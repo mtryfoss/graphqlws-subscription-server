@@ -136,7 +136,7 @@ func (l *Listener) GetChannelSubscriptions(channel string) graphqlws.Subscriptio
 	return subscriptions
 }
 
-func (l *Listener) GetUserSubscriptions(userIds []string) graphqlws.Subscriptions {
+func (l *Listener) GetUserSubscriptions(channel string, userIds []string) graphqlws.Subscriptions {
 	subscriptions := graphqlws.Subscriptions{}
 	connIds := map[string]bool{}
 	for _, uid := range userIds {
@@ -147,9 +147,11 @@ func (l *Listener) GetUserSubscriptions(userIds []string) graphqlws.Subscription
 			})
 		}
 	}
-	for conn, s := range l.Subscriptions() {
-		if _, exists := connIds[conn.ID()]; exists {
-			subscriptions[conn] = s
+	if _, exists := l.connIDByChannelMap[channel]; exists {
+		for conn, s := range l.Subscriptions() {
+			if _, exists := connIds[conn.ID()]; exists {
+				subscriptions[conn] = s
+			}
 		}
 	}
 	return subscriptions

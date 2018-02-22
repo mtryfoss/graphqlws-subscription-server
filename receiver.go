@@ -74,7 +74,7 @@ func (r *Receiver) Start(ctx context.Context, wg *sync.WaitGroup, l *Listener) {
 				return
 			case data := <-r.notifyChan:
 				if len(data.Users) > 0 {
-					sendData(l.GetUserSubscriptions(data.Users), data.Payload)
+					sendData(l.GetUserSubscriptions(data.Channel, data.Users), data.Payload)
 				} else {
 					sendData(l.GetChannelSubscriptions(data.Channel), data.Payload)
 				}
