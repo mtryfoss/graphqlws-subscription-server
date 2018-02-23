@@ -28,7 +28,7 @@ func (d *RequestData) Validate() error {
 func NewRequestDataFromBytes(b []byte) (*RequestData, error) {
 	data := &RequestData{}
 	if err := json.Unmarshal(b, data); err != nil {
-		return nil, errors.New("cannot parse invalid JSON request data.")
+		return nil, errors.New("cannot parse invalid JSON request data")
 	}
 	if err := data.Validate(); err != nil {
 		return nil, err
