@@ -16,6 +16,8 @@ type Listener struct {
 	connIDByChannelMap map[string]*sync.Map
 }
 
+type ListenerContextKey string
+
 func NewListener() *Listener {
 	return &Listener{
 		connIDByUserMap:    map[string]*sync.Map{},
@@ -24,16 +26,16 @@ func NewListener() *Listener {
 }
 
 func (l *Listener) BuildManager(schema *graphql.Schema) {
-	l.schema = schema
 	m := graphqlws.NewSubscriptionManager(schema)
+	l.schema = schema
 	l.manager = &m
 }
 
-func BuildCtx(eventName, eventVal interface{}, conn graphqlws.Connection) context.Context {
+func BuildCtx(eventName string, eventVal interface{}, conn graphqlws.Connection) context.Context {
 	ctx := context.Background()
-	ctx = context.WithValue(ctx, eventName, eventVal)
-	ctx = context.WithValue(ctx, "connID", conn.ID())
-	ctx = context.WithValue(ctx, "user", conn.User())
+	ctx = context.WithValue(ctx, ListenerContextKey(eventName), eventVal)
+	ctx = context.WithValue(ctx, ListenerContextKey("connID"), conn.ID())
+	ctx = context.WithValue(ctx, ListenerContextKey("user"), conn.User())
 	return ctx
 }
 
