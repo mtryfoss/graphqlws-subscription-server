@@ -1,4 +1,4 @@
-package graphqlws_subscription_server
+package gss
 
 import gss "github.com/taiyoh/graphqlws-subscription-server"
 

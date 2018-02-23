@@ -1,4 +1,4 @@
-package graphqlws_subscription_server
+package gss
 
 import (
 	"context"
