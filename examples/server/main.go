@@ -9,6 +9,8 @@ import (
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/functionalfoundry/graphqlws"
 	"github.com/graphql-go/graphql"
+	toml "github.com/pelletier/go-toml"
+
 	gss "github.com/taiyoh/graphqlws-subscription-server"
 )
 
@@ -88,4 +90,30 @@ func main() {
 	server.Start(ctx, wg)
 
 	wg.Wait()
+}
+
+type Conf struct {
+	Server ServerConf `toml:"server"`
+	Auth   AuthConf   `toml:"auth"`
+}
+
+type ServerConf struct {
+	Port            uint `toml:"port"`
+	MaxHandlerCount uint `toml:"max_handler_count"`
+}
+
+type AuthConf struct {
+	SecretKey string `toml:"secret_key"`
+}
+
+func NewConf(path string) (*Conf, error) {
+	config, err := toml.LoadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	conf := &Conf{}
+	config.Unmarshal(conf)
+
+	return conf, nil
 }
