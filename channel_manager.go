@@ -5,10 +5,10 @@ import (
 )
 
 type ChannelManager interface {
-	Subscribe(string, string, string)
-	Unsubscribe(string, string)
-	GetChannelSubscriptions(string) map[string]bool
-	GetUserSubscriptions(string, []string) map[string]bool
+	Subscribe(channelName, connID, userID string)
+	Unsubscribe(connID, userID string)
+	GetChannelSubscriptions(channelName string) map[string]bool
+	GetUserSubscriptions(channelName string, userIDs []string) map[string]bool
 }
 
 type channelManager struct {

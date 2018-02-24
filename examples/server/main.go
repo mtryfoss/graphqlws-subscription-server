@@ -6,10 +6,29 @@ import (
 	"log"
 	"sync"
 
+	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/functionalfoundry/graphqlws"
 	"github.com/graphql-go/graphql"
 	gss "github.com/taiyoh/graphqlws-subscription-server"
 )
+
+type ConnectedUser struct {
+	jwt.StandardClaims
+}
+
+func (u ConnectedUser) Name() string {
+	return u.Subject
+}
+
+func AuthenticateCallback(secretkey string) graphqlws.AuthenticateFunc {
+	return func(tokenstring string) (interface{}, error) {
+		user := ConnectedUser{}
+		_, err := jwt.ParseWithClaims(tokenstring, &user, func(token *jwt.Token) (interface{}, error) {
+			return []byte(secretkey), nil
+		})
+		return user, err
+	}
+}
 
 func main() {
 	var confPath string
@@ -41,24 +60,21 @@ func main() {
 		log.Fatalln("GraphQL schema is invalid")
 	}
 
-	listener := gss.NewListener(&schema)
+	listener := gss.NewListener(&schema, conf.Server.MaxHandlerCount, subChan, unsubChan)
 
 	ctx := context.Background()
 	wg := &sync.WaitGroup{}
 
-	receiver := gss.NewReceiver(conf.Server.MaxHandlerCount)
-	receiver.Start(ctx, wg, listener)
-
-	authCallback := AuthenticateCallback(conf.Auth.SecretKey)
+	listener.Start(ctx, wg)
 
 	server := gss.NewServer(conf.Server.Port)
 
 	server.RegisterHandle("/subscription", graphqlws.NewHandler(graphqlws.HandlerConfig{
 		SubscriptionManager: listener,
-		Authenticate:        authCallback,
+		Authenticate:        AuthenticateCallback(conf.Auth.SecretKey),
 	}))
 
-	server.RegisterHandle("/notify", gss.NewNotifyHandler(receiver.GetNotifierChan()))
+	server.RegisterHandle("/notify", gss.NewNotifyHandler(listener.GetNotifierChan()))
 
 	server.Start(ctx, wg)
 
