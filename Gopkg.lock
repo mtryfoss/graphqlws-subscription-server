@@ -2,12 +2,6 @@
 
 
 [[projects]]
-  name = "github.com/dgrijalva/jwt-go"
-  packages = ["."]
-  revision = "dbeaa9332f19a944acb5736b4456cfcc02140e29"
-  version = "v3.1.0"
-
-[[projects]]
   branch = "master"
   name = "github.com/functionalfoundry/graphqlws"
   packages = ["."]
@@ -27,19 +21,7 @@
 
 [[projects]]
   name = "github.com/graphql-go/graphql"
-  packages = [
-    ".",
-    "gqlerrors",
-    "language/ast",
-    "language/kinds",
-    "language/lexer",
-    "language/location",
-    "language/parser",
-    "language/printer",
-    "language/source",
-    "language/typeInfo",
-    "language/visitor"
-  ]
+  packages = [".","gqlerrors","language/ast","language/kinds","language/lexer","language/location","language/parser","language/printer","language/source","language/typeInfo","language/visitor"]
   revision = "5e7dd4fc3e87341229fa03d8f79d2ab5455963fb"
   version = "v0.7.4"
 
@@ -62,12 +44,6 @@
   revision = "9520e82c474b0a04dd04f8a40959027271bab992"
 
 [[projects]]
-  name = "github.com/pelletier/go-toml"
-  packages = ["."]
-  revision = "acdc4509485b587f5e675510c4f2c63e90ff68a8"
-  version = "v1.1.0"
-
-[[projects]]
   name = "github.com/sirupsen/logrus"
   packages = ["."]
   revision = "d682213848ed68c0a260ca37d6dd5ace8423f5ba"
@@ -83,20 +59,17 @@
   branch = "master"
   name = "golang.org/x/crypto"
   packages = ["ssh/terminal"]
-  revision = "650f4a345ab4e5b245a3034b110ebc7299e68186"
+  revision = "49796115aa4b964c318aad4f3084fdb41e9aa067"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/sys"
-  packages = [
-    "unix",
-    "windows"
-  ]
-  revision = "37707fdb30a5b38865cfb95e5aab41707daec7fd"
+  packages = ["unix","windows"]
+  revision = "88d2dcc510266da9f7f8c7f34e1940716cab5f5c"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "f045fd3e37ca2b478fc68043ab0ee4edada4d0668365e56bcb8518b21f690ae6"
+  inputs-digest = "ad4b09b7682bd9a2c3c5c573b2a20e6b19c0ae3cbd6f2b0eee2aec76e9f55e44"
   solver-name = "gps-cdcl"
   solver-version = 1
