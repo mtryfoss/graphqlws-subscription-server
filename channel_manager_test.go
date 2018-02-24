@@ -161,6 +161,48 @@ func TestChannelManagerSubscribeAndUnsubscribe(t *testing.T) {
 	}
 }
 
+func TestGetSubscriptionsByChannelManager(t *testing.T) {
+	m := NewChannelManager()
+	chName1 := "foo"
+	chName2 := "bar"
+	subs := m.GetChannelSubscriptions(chName1)
+	if len(subs) != 0 {
+		t.Error("subscriptions count should be 0")
+	}
+	m.Subscribe(chName1, "conn1", "user1")
+	m.Subscribe(chName1, "conn2", "user2")
+	m.Subscribe(chName2, "conn3", "user3")
+	m.Subscribe(chName1, "conn4", "user4")
+	m.Subscribe(chName1, "conn5", "user4")
+
+	subs = m.GetChannelSubscriptions(chName1)
+	if len(subs) != 4 {
+		t.Error("subscriptions count should be 4")
+	}
+	for _, c := range []string{"conn1", "conn2", "conn4", "conn5"} {
+		if _, exists := subs[c]; !exists {
+			t.Error("connection: " + c + " not found")
+		}
+	}
+
+	subs = m.GetUserSubscriptions(chName1, []string{"user4"})
+	if len(subs) != 2 {
+		t.Error("subscriptions count should be 2")
+	}
+	if _, exists := subs["conn4"]; !exists {
+		t.Error("conn4 should exists")
+	}
+	if _, exists := subs["conn5"]; !exists {
+		t.Error("conn5 should exists")
+	}
+
+	subs = m.GetUserSubscriptions(chName1, []string{"user3"})
+	if len(subs) != 0 {
+		t.Error("subscriptions count should be 0")
+	}
+
+}
+
 func getConnsFromSyncMap(m *sync.Map) map[string]bool {
 	connections := map[string]bool{}
 	m.Range(func(k, v interface{}) bool {
