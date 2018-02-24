@@ -10,13 +10,21 @@ type SampleComment struct {
 	content string `json:"content"`
 }
 
+func newDummyResponse() *SampleComment {
+	return &SampleComment{id: "id", content: "content"}
+}
+
 type Comment struct {
-	gss.GraphQLTypeImpl
+	gss.GraphQLType
 	fieldName string
 }
 
 func NewComment() *Comment {
 	return &Comment{fieldName: "newComment"}
+}
+
+func (c *Comment) FieldName() string {
+	return c.fieldName
 }
 
 func (c *Comment) GetType() graphql.ObjectConfig {
@@ -40,19 +48,17 @@ func (c *Comment) OnPayload(payload interface{}, p graphql.ResolveParams) (inter
 	return comment, nil
 }
 
-func (c *Comment) OnSubscribe(p graphql.ResolveParams, listener *gss.Listener) (interface{}, error) {
+func (c *Comment) OnSubscribe(listener *gss.Listener, p graphql.ResolveParams) (interface{}, error) {
 	user := p.Context.Value("user").(ConnectedUser)
 	connID := p.Context.Value("connID").(string)
 	channelName := c.FieldName() + ":" + p.Args["roomId"].(string)
 	listener.Subscribe(channelName, connID, user.Name())
-	dummyComment := &SampleComment{"ping", "ping"}
-	return dummyComment, nil
+	return newDummyResponse(), nil
 }
 
-func (c *Comment) OnUnsubscribe(p graphql.ResolveParams, listener *gss.Listener) (interface{}, error) {
+func (c *Comment) OnUnsubscribe(listener *gss.Listener, p graphql.ResolveParams) (interface{}, error) {
 	user := p.Context.Value("user").(ConnectedUser)
 	connID := p.Context.Value("connID").(string)
 	listener.Unsubscribe(connID, user.Name())
-	dummyComment := &SampleComment{"ping", "ping"}
-	return dummyComment, nil
+	return newDummyResponse(), nil
 }
