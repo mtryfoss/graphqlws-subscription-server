@@ -7,18 +7,6 @@ import (
 	"github.com/graphql-go/graphql"
 )
 
-/*
-type GraphQLType interface {
-	OnPayload(payload interface{}, p graphql.ResolveParams) (interface{}, error)
-	OnSubscribe(p graphql.ResolveParams) (interface{}, error)
-
-	OnUnsubscribe(p graphql.ResolveParams) (interface{}, error)
-	GetType() graphql.ObjectConfig
-	GetArgs() map[string]*graphql.ArgumentConfig
-	FieldName() string
-}
-*/
-
 type GraphQLResolveTest1 struct {
 	GraphQLResolve
 	OnPayloadCalled     bool
