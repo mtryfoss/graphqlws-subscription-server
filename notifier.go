@@ -46,9 +46,14 @@ func readJSONContent(req *http.Request) (*RequestData, error) {
 func (h *NotificationHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	defer req.Body.Close()
 	w.Header().Set("Content-Type", "application/json")
+	if req.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		w.Write(failResponse([]string{"not allowed method"}))
+		return
+	}
 	data, err := readJSONContent(req)
 	if err != nil {
-		w.WriteHeader(400)
+		w.WriteHeader(http.StatusBadRequest)
 		w.Write(failResponse([]string{err.Error()}))
 		return
 	}
