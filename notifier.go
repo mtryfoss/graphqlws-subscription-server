@@ -5,12 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-
-	gss "github.com/taiyoh/graphqlws-subscription-server"
 )
 
-type Notification struct {
-	notifyChan chan *gss.RequestData
+type NotificationHandler struct {
+	notifyChan chan *RequestData
 }
 
 type NotificationResponse struct {
@@ -30,7 +28,7 @@ func failResponse(errs []string) []byte {
 	return b
 }
 
-func readJSONContent(req *http.Request) (*gss.RequestData, error) {
+func readJSONContent(req *http.Request) (*RequestData, error) {
 	if contentType := req.Header.Get("Content-Type"); contentType != "application/json" {
 		return nil, errors.New("Content-Type requires application/json")
 	}
@@ -38,14 +36,14 @@ func readJSONContent(req *http.Request) (*gss.RequestData, error) {
 	if _, err := bufbody.ReadFrom(req.Body); err != nil {
 		return nil, err
 	}
-	data, err := gss.NewRequestDataFromBytes(bufbody.Bytes())
+	data, err := NewRequestDataFromBytes(bufbody.Bytes())
 	if err != nil {
 		return nil, err
 	}
 	return data, nil
 }
 
-func (r *Notification) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+func (h *NotificationHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	defer req.Body.Close()
 	w.Header().Set("Content-Type", "application/json")
 	data, err := readJSONContent(req)
@@ -54,10 +52,10 @@ func (r *Notification) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		w.Write(failResponse([]string{err.Error()}))
 		return
 	}
-	r.notifyChan <- data
+	h.notifyChan <- data
 	w.Write(successResponse())
 }
 
-func (h *Handler) NewNotifyHandler(ch chan *gss.RequestData) http.Handler {
-	return &Notification{notifyChan: ch}
+func NewNotifyHandler(ch chan *RequestData) http.Handler {
+	return &NotificationHandler{notifyChan: ch}
 }

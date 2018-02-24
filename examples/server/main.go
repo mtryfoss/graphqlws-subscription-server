@@ -6,8 +6,8 @@ import (
 	"log"
 	"sync"
 
+	"github.com/functionalfoundry/graphqlws"
 	gss "github.com/taiyoh/graphqlws-subscription-server"
-	gss_handler "github.com/taiyoh/graphqlws-subscription-server/handler"
 )
 
 func main() {
@@ -34,16 +34,19 @@ func main() {
 	ctx := context.Background()
 	wg := &sync.WaitGroup{}
 
-	server := gss.NewServer(conf.Server.Port)
-	handler := gss_handler.NewHandler(listener)
-
 	receiver := gss.NewReceiver(conf.Server.MaxHandlerCount)
 	receiver.Start(ctx, wg, listener)
 
 	authCallback := AuthenticateCallback(conf.Auth.SecretKey)
 
-	server.RegisterHandle("/subscription", handler.NewWebsocketHandler(authCallback))
-	server.RegisterHandle("/notify", handler.NewNotifyHandler(receiver.GetNotifierChan()))
+	server := gss.NewServer(conf.Server.Port)
+
+	server.RegisterHandle("/subscription", graphqlws.NewHandler(graphqlws.HandlerConfig{
+		SubscriptionManager: listener,
+		Authenticate:        authCallback,
+	}))
+
+	server.RegisterHandle("/notify", gss.NewNotifyHandler(receiver.GetNotifierChan()))
 
 	server.Start(ctx, wg)
 
