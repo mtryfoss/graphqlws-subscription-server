@@ -1,43 +1,60 @@
 package gss
 
 import (
+	"errors"
 	"sync"
 )
 
 type ChannelManager interface {
 	Subscribe(channelName, connID, userID string)
-	Unsubscribe(connID, userID string)
+	Unsubscribe(connID, userID string) error
 	GetChannelSubscriptions(channelName string) map[string]bool
 	GetUserSubscriptions(channelName string, userIDs []string) map[string]bool
 }
 
 type channelManager struct {
 	ChannelManager
-	ConnIDByUserMap    map[string]*sync.Map
-	ConnIDByChannelMap map[string]*sync.Map
+	connIDByUserMap    map[string]*sync.Map
+	connIDByChannelMap map[string]*sync.Map
 }
 
-func NewChannelManager() ChannelManager {
+func NewChannelManager() *channelManager {
 	return &channelManager{
-		ConnIDByUserMap:    map[string]*sync.Map{},
-		ConnIDByChannelMap: map[string]*sync.Map{},
+		connIDByUserMap:    map[string]*sync.Map{},
+		connIDByChannelMap: map[string]*sync.Map{},
 	}
+}
+
+func (m *channelManager) GetMapsByUser(userID string) (*sync.Map, error) {
+	idmap, exists := m.connIDByUserMap[userID]
+	if !exists {
+		return nil, errors.New("userID: " + userID + " not registered")
+	}
+	return idmap, nil
+}
+
+func (m *channelManager) GetMapsByChannel(channelName string) (*sync.Map, error) {
+	idmap, exists := m.connIDByChannelMap[channelName]
+	if !exists {
+		return nil, errors.New("channelName: " + channelName + " not registered")
+	}
+	return idmap, nil
 }
 
 func (m *channelManager) Subscribe(channel, connId, userId string) {
-	if connList, exists := m.ConnIDByChannelMap[channel]; exists {
+	if connList, exists := m.connIDByChannelMap[channel]; exists {
 		connList.Store(connId, true)
 	} else {
 		store := &sync.Map{}
 		store.Store(connId, true)
-		m.ConnIDByChannelMap[channel] = store
+		m.connIDByChannelMap[channel] = store
 	}
-	if connList, exists := m.ConnIDByUserMap[userId]; exists {
+	if connList, exists := m.connIDByUserMap[userId]; exists {
 		connList.Store(connId, true)
 	} else {
 		store := &sync.Map{}
 		store.Store(connId, true)
-		m.ConnIDByUserMap[userId] = store
+		m.connIDByUserMap[userId] = store
 	}
 }
 
@@ -50,28 +67,28 @@ func keyExists(m *sync.Map) bool {
 	return cnt > 0
 }
 
-func (m *channelManager) Unsubscribe(connId, userId string) {
-	connIds := []string{connId}
-	if store, exists := m.ConnIDByUserMap[userId]; exists {
-		store.Range(func(k, v interface{}) bool {
-			connIds = append(connIds, k.(string))
-			return true
-		})
-		delete(m.ConnIDByUserMap, userId)
+func (m *channelManager) Unsubscribe(connId, userId string) error {
+	userStore, err := m.GetMapsByUser(userId)
+	if err != nil {
+		return err
 	}
-	for chname, store := range m.ConnIDByChannelMap {
-		for _, cid := range connIds {
-			store.Delete(cid)
-		}
+	userStore.Delete(connId)
+	if !keyExists(userStore) {
+		delete(m.connIDByUserMap, userId)
+	}
+	for chname, store := range m.connIDByChannelMap {
+		store.Delete(connId)
 		if !keyExists(store) {
-			delete(m.ConnIDByChannelMap, chname)
+			delete(m.connIDByChannelMap, chname)
 		}
 	}
+
+	return nil
 }
 
 func (m *channelManager) GetChannelSubscriptions(channel string) map[string]bool {
 	connIds := map[string]bool{}
-	if connList, exists := m.ConnIDByChannelMap[channel]; exists {
+	if connList, exists := m.connIDByChannelMap[channel]; exists {
 		connList.Range(func(k, v interface{}) bool {
 			connIds[k.(string)] = true
 			return true
@@ -82,7 +99,7 @@ func (m *channelManager) GetChannelSubscriptions(channel string) map[string]bool
 
 func (m *channelManager) GetUserSubscriptions(channel string, userIds []string) map[string]bool {
 	connIds := map[string]bool{}
-	if connList, exists := m.ConnIDByChannelMap[channel]; exists {
+	if connList, exists := m.connIDByChannelMap[channel]; exists {
 		connList.Range(func(k, v interface{}) bool {
 			connIds[k.(string)] = true
 			return true
@@ -90,7 +107,7 @@ func (m *channelManager) GetUserSubscriptions(channel string, userIds []string) 
 	}
 	userConnIds := map[string]bool{}
 	for _, uid := range userIds {
-		if connList, exists := m.ConnIDByUserMap[uid]; exists {
+		if connList, exists := m.connIDByUserMap[uid]; exists {
 			connList.Range(func(k, v interface{}) bool {
 				connID := k.(string)
 				if _, exists := connIds[connID]; exists {
