@@ -7,19 +7,17 @@ import (
 	"github.com/graphql-go/graphql"
 )
 
-type ChannelExecutor interface {
-	DoGraphQL(context.Context, *graphqlws.Subscription) *graphql.Result
+type SubscribeCalculator interface {
+	Do(ctx context.Context, query string, variables map[string]interface{}, opName string) *graphql.Result
 }
 
-type channelExecuter struct {
-	ChannelExecutor
+type subscribeCalculator struct {
+	SubscribeCalculator
 	schema *graphql.Schema
 }
 
-type ListenerContextKey string
-
-func NewChannelExecutor(schema *graphql.Schema) ChannelExecutor {
-	return &channelExecuter{
+func NewSubscribeCalculator(schema *graphql.Schema) *subscribeCalculator {
+	return &subscribeCalculator{
 		schema: schema,
 	}
 }
@@ -32,12 +30,12 @@ func buildCtx(eventName string, eventVal interface{}, conn graphqlws.Connection)
 	return ctx
 }
 
-func (e *channelExecuter) DoGraphQL(ctx context.Context, s *graphqlws.Subscription) *graphql.Result {
+func (c *subscribeCalculator) Do(ctx context.Context, query string, variables map[string]interface{}, opName string) *graphql.Result {
 	return graphql.Do(graphql.Params{
-		Schema:         *e.schema, // The GraphQL schema
-		RequestString:  s.Query,
-		VariableValues: s.Variables,
-		OperationName:  s.OperationName,
+		Schema:         *c.schema, // The GraphQL schema
+		RequestString:  query,
+		VariableValues: variables,
+		OperationName:  opName,
 		Context:        ctx,
 	})
 }

@@ -6,7 +6,7 @@ import (
 )
 
 func TestChannelManagerSubscribeAndUnsubscribe(t *testing.T) {
-	m := NewChannelManager()
+	m := NewSubscribeFilter()
 	chanName1 := "foo"
 	connID1 := "conn1"
 	userID1 := "hoge"
@@ -162,7 +162,7 @@ func TestChannelManagerSubscribeAndUnsubscribe(t *testing.T) {
 }
 
 func TestGetSubscriptionsByChannelManager(t *testing.T) {
-	m := NewChannelManager()
+	m := NewSubscribeFilter()
 	chName1 := "foo"
 	chName2 := "bar"
 	subs := m.GetChannelSubscriptions(chName1)
