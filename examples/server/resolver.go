@@ -15,34 +15,13 @@ func newDummyResponse() *SampleComment {
 }
 
 type Comment struct {
-	gss.GraphQLType
-	fieldName       string
+	gss.GraphQLResolve
 	subscribeChan   chan *gss.SubscribeEvent
 	unsubscribeChan chan *gss.UnsubscribeEvent
 }
 
 func NewComment(subChan chan *gss.SubscribeEvent, unsubChan chan *gss.UnsubscribeEvent) *Comment {
-	return &Comment{fieldName: "newComment", subscribeChan: subChan, unsubscribeChan: unsubChan}
-}
-
-func (c *Comment) FieldName() string {
-	return c.fieldName
-}
-
-func (c *Comment) GetType() graphql.ObjectConfig {
-	return graphql.ObjectConfig{
-		Name: "Comment",
-		Fields: graphql.Fields{
-			"id":      &graphql.Field{Type: graphql.NewNonNull(graphql.ID)},
-			"content": &graphql.Field{Type: graphql.NewNonNull(graphql.String)},
-		},
-	}
-}
-
-func (c *Comment) GetArgs() map[string]*graphql.ArgumentConfig {
-	return map[string]*graphql.ArgumentConfig{
-		"roomId": &graphql.ArgumentConfig{Type: graphql.NewNonNull(graphql.ID)},
-	}
+	return &Comment{subscribeChan: subChan, unsubscribeChan: unsubChan}
 }
 
 func (c *Comment) OnPayload(payload interface{}, p graphql.ResolveParams) (interface{}, error) {
@@ -53,7 +32,7 @@ func (c *Comment) OnPayload(payload interface{}, p graphql.ResolveParams) (inter
 func (c *Comment) OnSubscribe(p graphql.ResolveParams) (interface{}, error) {
 	user := p.Context.Value("user").(ConnectedUser)
 	connID := p.Context.Value("connID").(string)
-	channelName := c.FieldName() + ":" + p.Args["roomId"].(string)
+	channelName := "newComment:" + p.Args["roomId"].(string)
 	c.subscribeChan <- gss.NewSubscribeEvent(channelName, connID, user.Name())
 	return newDummyResponse(), nil
 }

@@ -43,16 +43,25 @@ func main() {
 	subChan := make(chan *gss.SubscribeEvent, conf.Server.MaxHandlerCount)
 	unsubChan := make(chan *gss.UnsubscribeEvent, conf.Server.MaxHandlerCount)
 
-	types := []gss.GraphQLType{NewComment(subChan, unsubChan)}
-	fields := graphql.Fields{}
-	for _, t := range types {
-		fields[t.FieldName()] = gss.BuildField(t)
-	}
 	schema, err := graphql.NewSchema(graphql.SchemaConfig{
 		Subscription: graphql.NewObject(
 			graphql.ObjectConfig{
-				Name:   "RootSubscription",
-				Fields: fields,
+				Name: "RootSubscription",
+				Fields: graphql.Fields{
+					"newComment": &graphql.Field{
+						Type: graphql.NewObject(graphql.ObjectConfig{
+							Name: "Comment",
+							Fields: graphql.Fields{
+								"id":      &graphql.Field{Type: graphql.NewNonNull(graphql.ID)},
+								"content": &graphql.Field{Type: graphql.NewNonNull(graphql.String)},
+							},
+						}),
+						Args: graphql.FieldConfigArgument{
+							"roomId": &graphql.ArgumentConfig{Type: graphql.NewNonNull(graphql.ID)},
+						},
+						Resolve: gss.BuildResolve(NewComment(subChan, unsubChan)),
+					},
+				},
 			},
 		),
 	})
