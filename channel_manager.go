@@ -4,19 +4,27 @@ import (
 	"sync"
 )
 
-type ChannelManager struct {
+type ChannelManager interface {
+	Subscribe(string, string, string)
+	Unsubscribe(string, string)
+	GetChannelSubscriptions(string) map[string]bool
+	GetUserSubscriptions(string, []string) map[string]bool
+}
+
+type channelManager struct {
+	ChannelManager
 	connIDByUserMap    map[string]*sync.Map
 	connIDByChannelMap map[string]*sync.Map
 }
 
-func NewChannelManager() *ChannelManager {
-	return &ChannelManager{
+func NewChannelManager() ChannelManager {
+	return &channelManager{
 		connIDByUserMap:    map[string]*sync.Map{},
 		connIDByChannelMap: map[string]*sync.Map{},
 	}
 }
 
-func (m *ChannelManager) Subscribe(channel, connId, userId string) {
+func (m *channelManager) Subscribe(channel, connId, userId string) {
 	if connList, exists := m.connIDByChannelMap[channel]; exists {
 		connList.Store(connId, true)
 	} else {
@@ -42,7 +50,7 @@ func keyExists(m *sync.Map) bool {
 	return cnt > 0
 }
 
-func (m *ChannelManager) Unsubscribe(connId, userId string) {
+func (m *channelManager) Unsubscribe(connId, userId string) {
 	connIds := []string{connId}
 	if store, exists := m.connIDByUserMap[userId]; exists {
 		store.Range(func(k, v interface{}) bool {
@@ -61,7 +69,7 @@ func (m *ChannelManager) Unsubscribe(connId, userId string) {
 	}
 }
 
-func (m *ChannelManager) GetChannelSubscriptions(channel string) map[string]bool {
+func (m *channelManager) GetChannelSubscriptions(channel string) map[string]bool {
 	connIds := map[string]bool{}
 	if connList, exists := m.connIDByChannelMap[channel]; exists {
 		connList.Range(func(k, v interface{}) bool {
@@ -72,7 +80,7 @@ func (m *ChannelManager) GetChannelSubscriptions(channel string) map[string]bool
 	return connIds
 }
 
-func (m *ChannelManager) GetUserSubscriptions(channel string, userIds []string) map[string]bool {
+func (m *channelManager) GetUserSubscriptions(channel string, userIds []string) map[string]bool {
 	connIds := map[string]bool{}
 	if connList, exists := m.connIDByChannelMap[channel]; exists {
 		connList.Range(func(k, v interface{}) bool {
