@@ -14,24 +14,6 @@ import (
 	gss "github.com/taiyoh/graphqlws-subscription-server"
 )
 
-type ConnectedUser struct {
-	jwt.StandardClaims
-}
-
-func (u ConnectedUser) Name() string {
-	return u.Subject
-}
-
-func AuthenticateCallback(secretkey string) graphqlws.AuthenticateFunc {
-	return func(tokenstring string) (interface{}, error) {
-		user := ConnectedUser{}
-		_, err := jwt.ParseWithClaims(tokenstring, &user, func(token *jwt.Token) (interface{}, error) {
-			return []byte(secretkey), nil
-		})
-		return user, err
-	}
-}
-
 func main() {
 	var confPath string
 	flag.StringVar(&confPath, "config", "config.toml", "config path")
@@ -92,6 +74,36 @@ func main() {
 	wg.Wait()
 }
 
+//
+// <!-- Authenticate section start
+//
+
+type ConnectedUser struct {
+	jwt.StandardClaims
+}
+
+func (u ConnectedUser) Name() string {
+	return u.Subject
+}
+
+func AuthenticateCallback(secretkey string) graphqlws.AuthenticateFunc {
+	return func(tokenstring string) (interface{}, error) {
+		user := ConnectedUser{}
+		_, err := jwt.ParseWithClaims(tokenstring, &user, func(token *jwt.Token) (interface{}, error) {
+			return []byte(secretkey), nil
+		})
+		return user, err
+	}
+}
+
+//
+// Authenticate section end -->
+//
+
+//
+// <!-- Config section start
+//
+
 type Conf struct {
 	Server ServerConf `toml:"server"`
 	Auth   AuthConf   `toml:"auth"`
@@ -117,3 +129,54 @@ func NewConf(path string) (*Conf, error) {
 
 	return conf, nil
 }
+
+//
+// Config section end -->
+//
+
+//
+// <!-- Resolver section start
+//
+
+type SampleComment struct {
+	id      string `json:"id"`
+	content string `json:"content"`
+}
+
+func newDummyResponse() *SampleComment {
+	return &SampleComment{id: "id", content: "content"}
+}
+
+type Comment struct {
+	gss.GraphQLResolve
+	subscribeChan   chan *gss.SubscribeEvent
+	unsubscribeChan chan *gss.UnsubscribeEvent
+}
+
+func NewComment(subChan chan *gss.SubscribeEvent, unsubChan chan *gss.UnsubscribeEvent) *Comment {
+	return &Comment{subscribeChan: subChan, unsubscribeChan: unsubChan}
+}
+
+func (c *Comment) OnPayload(payload interface{}, p graphql.ResolveParams) (interface{}, error) {
+	comment := payload.(SampleComment)
+	return comment, nil
+}
+
+func (c *Comment) OnSubscribe(p graphql.ResolveParams) (interface{}, error) {
+	user := p.Context.Value("user").(ConnectedUser)
+	connID := p.Context.Value("connID").(string)
+	channelName := "newComment:" + p.Args["roomId"].(string)
+	c.subscribeChan <- gss.NewSubscribeEvent(channelName, connID, user.Name())
+	return newDummyResponse(), nil
+}
+
+func (c *Comment) OnUnsubscribe(p graphql.ResolveParams) (interface{}, error) {
+	user := p.Context.Value("user").(ConnectedUser)
+	connID := p.Context.Value("connID").(string)
+	c.unsubscribeChan <- gss.NewUnsubscribeEvent(connID, user.Name())
+	return newDummyResponse(), nil
+}
+
+//
+// Resolver section end -->
+//
