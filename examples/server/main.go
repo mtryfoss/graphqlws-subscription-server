@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/functionalfoundry/graphqlws"
+	"github.com/graphql-go/graphql"
 	gss "github.com/taiyoh/graphqlws-subscription-server"
 )
 
@@ -24,12 +25,23 @@ func main() {
 	unsubChan := make(chan *gss.UnsubscribeEvent, conf.Server.MaxHandlerCount)
 
 	types := []gss.GraphQLType{NewComment(subChan, unsubChan)}
-	schema, err := gss.BuildSchema(types)
+	fields := graphql.Fields{}
+	for _, t := range types {
+		fields[t.FieldName()] = gss.BuildField(t)
+	}
+	schema, err := graphql.NewSchema(graphql.SchemaConfig{
+		Subscription: graphql.NewObject(
+			graphql.ObjectConfig{
+				Name:   "RootSubscription",
+				Fields: fields,
+			},
+		),
+	})
 	if err != nil {
 		log.Fatalln("GraphQL schema is invalid")
 	}
 
-	listener := gss.NewListener(schema)
+	listener := gss.NewListener(&schema)
 
 	ctx := context.Background()
 	wg := &sync.WaitGroup{}

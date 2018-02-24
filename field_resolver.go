@@ -15,7 +15,7 @@ type GraphQLType interface {
 	FieldName() string
 }
 
-func buildField(t GraphQLType) *graphql.Field {
+func BuildField(t GraphQLType) *graphql.Field {
 	args := graphql.FieldConfigArgument{}
 	for name, arg := range t.GetArgs() {
 		args[name] = arg
@@ -36,24 +36,4 @@ func buildField(t GraphQLType) *graphql.Field {
 			return nil, errors.New("no payload exists")
 		},
 	}
-}
-
-func BuildSchema(types []GraphQLType) (*graphql.Schema, error) {
-	fields := graphql.Fields{}
-	for _, t := range types {
-		fields[t.FieldName()] = buildField(t)
-	}
-	schema, err := graphql.NewSchema(graphql.SchemaConfig{
-		Subscription: graphql.NewObject(
-			graphql.ObjectConfig{
-				Name:   "RootSubscription",
-				Fields: fields,
-			},
-		),
-	})
-
-	if err != nil {
-		return nil, err
-	}
-	return &schema, nil
 }
