@@ -8,14 +8,14 @@ import (
 
 type GraphQLType interface {
 	OnPayload(payload interface{}, p graphql.ResolveParams) (interface{}, error)
-	OnSubscribe(l *Listener, p graphql.ResolveParams) (interface{}, error)
-	OnUnsubscribe(l *Listener, p graphql.ResolveParams) (interface{}, error)
+	OnSubscribe(p graphql.ResolveParams) (interface{}, error)
+	OnUnsubscribe(p graphql.ResolveParams) (interface{}, error)
 	GetType() graphql.ObjectConfig
 	GetArgs() map[string]*graphql.ArgumentConfig
 	FieldName() string
 }
 
-func buildField(listener *Listener, t GraphQLType) *graphql.Field {
+func buildField(t GraphQLType) *graphql.Field {
 	args := graphql.FieldConfigArgument{}
 	for name, arg := range t.GetArgs() {
 		args[name] = arg
@@ -28,12 +28,32 @@ func buildField(listener *Listener, t GraphQLType) *graphql.Field {
 				return t.OnPayload(payload, p)
 			}
 			if s := p.Context.Value(ListenerContextKey("onSubscribe")); s != nil { // AddSubscription called
-				return t.OnSubscribe(listener, p)
+				return t.OnSubscribe(p)
 			}
 			if s := p.Context.Value(ListenerContextKey("onUnsubscribe")); s != nil { // removeSubscription called
-				return t.OnUnsubscribe(listener, p)
+				return t.OnUnsubscribe(p)
 			}
 			return nil, errors.New("no payload exists")
 		},
 	}
+}
+
+func BuildSchema(types []GraphQLType) (*graphql.Schema, error) {
+	fields := graphql.Fields{}
+	for _, t := range types {
+		fields[t.FieldName()] = buildField(t)
+	}
+	schema, err := graphql.NewSchema(graphql.SchemaConfig{
+		Subscription: graphql.NewObject(
+			graphql.ObjectConfig{
+				Name:   "RootSubscription",
+				Fields: fields,
+			},
+		),
+	})
+
+	if err != nil {
+		return nil, err
+	}
+	return &schema, nil
 }

@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"sync"
-
-	"github.com/functionalfoundry/graphqlws"
 )
 
 type RequestData struct {
@@ -51,32 +49,19 @@ func (r *Receiver) GetNotifierChan() chan *RequestData {
 }
 
 func (r *Receiver) Start(ctx context.Context, wg *sync.WaitGroup, l *Listener) {
-	sendData := func(subscriptions graphqlws.Subscriptions, payload interface{}) {
-		for conn := range subscriptions {
-			for _, subscription := range subscriptions[conn] {
-				res := l.DoGraphQL(BuildCtx("payload", payload, conn), subscription)
-				d := &graphqlws.DataMessagePayload{
-					Data: res.Data,
-				}
-				if res.HasErrors() {
-					d.Errors = graphqlws.ErrorsFromGraphQLErrors(res.Errors)
-				}
-				subscription.SendData(d)
-			}
-		}
-	}
 	wg.Add(1)
+	chanManager := l.ChannelManager()
 	go func() {
 		defer wg.Done()
 		for {
 			select {
 			case <-ctx.Done():
 				return
-			case data := <-r.notifyChan:
+			case data := <-r.GetNotifierChan():
 				if len(data.Users) > 0 {
-					sendData(l.GetUserSubscriptions(data.Channel, data.Users), data.Payload)
+					l.Publish(chanManager.GetUserSubscriptions(data.Channel, data.Users), data.Payload)
 				} else {
-					sendData(l.GetChannelSubscriptions(data.Channel), data.Payload)
+					l.Publish(chanManager.GetChannelSubscriptions(data.Channel), data.Payload)
 				}
 			}
 		}

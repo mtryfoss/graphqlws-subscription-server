@@ -2,7 +2,6 @@ package gss
 
 import (
 	"context"
-	"sync"
 
 	"github.com/functionalfoundry/graphqlws"
 	"github.com/graphql-go/graphql"
@@ -10,28 +9,24 @@ import (
 
 type Listener struct {
 	graphqlws.SubscriptionManager
-	manager            *graphqlws.SubscriptionManager
-	schema             *graphql.Schema
-	connIDByUserMap    map[string]*sync.Map
-	connIDByChannelMap map[string]*sync.Map
+	ms     *graphqlws.SubscriptionManager
+	mc     *ChannelManager
+	schema *graphql.Schema
 }
 
 type ListenerContextKey string
 
-func NewListener() *Listener {
+func NewListener(schema *graphql.Schema) *Listener {
+	ms := graphqlws.NewSubscriptionManager(schema)
+	mc := NewChannelManager()
 	return &Listener{
-		connIDByUserMap:    map[string]*sync.Map{},
-		connIDByChannelMap: map[string]*sync.Map{},
+		schema: schema,
+		ms:     &ms,
+		mc:     mc,
 	}
 }
 
-func (l *Listener) BuildManager(schema *graphql.Schema) {
-	m := graphqlws.NewSubscriptionManager(schema)
-	l.schema = schema
-	l.manager = &m
-}
-
-func BuildCtx(eventName string, eventVal interface{}, conn graphqlws.Connection) context.Context {
+func buildCtx(eventName string, eventVal interface{}, conn graphqlws.Connection) context.Context {
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, ListenerContextKey(eventName), eventVal)
 	ctx = context.WithValue(ctx, ListenerContextKey("connID"), conn.ID())
@@ -50,13 +45,13 @@ func (l *Listener) DoGraphQL(ctx context.Context, s *graphqlws.Subscription) *gr
 }
 
 func (l *Listener) AddSubscription(conn graphqlws.Connection, s *graphqlws.Subscription) []error {
-	result := l.DoGraphQL(BuildCtx("onSubscribe", true, conn), s)
+	result := l.DoGraphQL(buildCtx("onSubscribe", true, conn), s)
 
 	if result.HasErrors() {
 		return graphqlws.ErrorsFromGraphQLErrors(result.Errors)
 	}
 
-	errs := (*l.manager).AddSubscription(conn, s)
+	errs := (*l.ms).AddSubscription(conn, s)
 	if errs != nil {
 		return errs
 	}
@@ -65,96 +60,39 @@ func (l *Listener) AddSubscription(conn graphqlws.Connection, s *graphqlws.Subsc
 }
 
 func (l *Listener) RemoveSubscription(conn graphqlws.Connection, s *graphqlws.Subscription) {
-	l.DoGraphQL(BuildCtx("onUnsubscribe", true, conn), s)
-	(*l.manager).RemoveSubscription(conn, s)
+	l.DoGraphQL(buildCtx("onUnsubscribe", true, conn), s)
+	(*l.ms).RemoveSubscription(conn, s)
 }
 
 func (l *Listener) RemoveSubscriptions(conn graphqlws.Connection) {
-	ctx := BuildCtx("onUnsubscribe", true, conn)
+	ctx := buildCtx("onUnsubscribe", true, conn)
 	for _, subscription := range l.Subscriptions()[conn] {
 		l.DoGraphQL(ctx, subscription)
 	}
-	(*l.manager).RemoveSubscriptions(conn)
+	(*l.ms).RemoveSubscriptions(conn)
 }
 
 func (l *Listener) Subscriptions() graphqlws.Subscriptions {
-	return (*l.manager).Subscriptions()
+	return (*l.ms).Subscriptions()
 }
 
-func (l *Listener) Subscribe(channel, connId, userId string) {
-	if connList, exists := l.connIDByChannelMap[channel]; exists {
-		connList.Store(connId, true)
-	} else {
-		store := &sync.Map{}
-		store.Store(connId, true)
-		l.connIDByChannelMap[channel] = store
-	}
-	if connList, exists := l.connIDByUserMap[userId]; exists {
-		connList.Store(connId, true)
-	} else {
-		store := &sync.Map{}
-		store.Store(connId, true)
-		l.connIDByUserMap[userId] = store
-	}
-}
-
-func keyExists(m *sync.Map) bool {
-	cnt := 0
-	m.Range(func(k, v interface{}) bool {
-		cnt++
-		return false
-	})
-	return cnt > 0
-}
-
-func (l *Listener) Unsubscribe(connId, userId string) {
-	connIds := []string{connId}
-	if store, exists := l.connIDByUserMap[userId]; exists {
-		store.Range(func(k, v interface{}) bool {
-			connIds = append(connIds, k.(string))
-			return true
-		})
-		delete(l.connIDByUserMap, userId)
-	}
-	for chname, store := range l.connIDByChannelMap {
-		for _, cid := range connIds {
-			store.Delete(cid)
-		}
-		if !keyExists(store) {
-			delete(l.connIDByChannelMap, chname)
-		}
-	}
-}
-
-func (l *Listener) GetChannelSubscriptions(channel string) graphqlws.Subscriptions {
-	subscriptions := graphqlws.Subscriptions{}
-	if connList, exists := l.connIDByChannelMap[channel]; exists {
-		for conn, s := range l.Subscriptions() {
-			if _, ok := connList.Load(conn.ID()); ok {
-				subscriptions[conn] = s
+func (l *Listener) Publish(connIds map[string]bool, payload interface{}) {
+	for conn, _ := range l.Subscriptions() {
+		if _, exists := connIds[conn.ID()]; exists {
+			for _, subscription := range l.Subscriptions()[conn] {
+				res := l.DoGraphQL(buildCtx("payload", payload, conn), subscription)
+				d := &graphqlws.DataMessagePayload{
+					Data: res.Data,
+				}
+				if res.HasErrors() {
+					d.Errors = graphqlws.ErrorsFromGraphQLErrors(res.Errors)
+				}
+				subscription.SendData(d)
 			}
 		}
 	}
-	return subscriptions
 }
 
-func (l *Listener) GetUserSubscriptions(channel string, userIds []string) graphqlws.Subscriptions {
-	subscriptions := graphqlws.Subscriptions{}
-	connIds := map[string]bool{}
-	for _, uid := range userIds {
-		if connList, exists := l.connIDByUserMap[uid]; exists {
-			connList.Range(func(k, v interface{}) bool {
-				connIds[k.(string)] = true
-				return true
-			})
-		}
-	}
-	if _, exists := l.connIDByChannelMap[channel]; exists {
-		for conn, s := range l.Subscriptions() {
-			if _, exists := connIds[conn.ID()]; exists {
-				subscriptions[conn] = s
-			}
-		}
-	}
-	return subscriptions
+func (l *Listener) ChannelManager() *ChannelManager {
+	return l.mc
 }

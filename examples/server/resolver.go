@@ -16,11 +16,13 @@ func newDummyResponse() *SampleComment {
 
 type Comment struct {
 	gss.GraphQLType
-	fieldName string
+	fieldName       string
+	subscribeChan   chan *gss.SubscribeEvent
+	unsubscribeChan chan *gss.UnsubscribeEvent
 }
 
-func NewComment() *Comment {
-	return &Comment{fieldName: "newComment"}
+func NewComment(subChan chan *gss.SubscribeEvent, unsubChan chan *gss.UnsubscribeEvent) *Comment {
+	return &Comment{fieldName: "newComment", subscribeChan: subChan, unsubscribeChan: unsubChan}
 }
 
 func (c *Comment) FieldName() string {
@@ -48,17 +50,17 @@ func (c *Comment) OnPayload(payload interface{}, p graphql.ResolveParams) (inter
 	return comment, nil
 }
 
-func (c *Comment) OnSubscribe(listener *gss.Listener, p graphql.ResolveParams) (interface{}, error) {
+func (c *Comment) OnSubscribe(p graphql.ResolveParams) (interface{}, error) {
 	user := p.Context.Value("user").(ConnectedUser)
 	connID := p.Context.Value("connID").(string)
 	channelName := c.FieldName() + ":" + p.Args["roomId"].(string)
-	listener.Subscribe(channelName, connID, user.Name())
+	c.subscribeChan <- gss.NewSubscribeEvent(channelName, connID, user.Name())
 	return newDummyResponse(), nil
 }
 
-func (c *Comment) OnUnsubscribe(listener *gss.Listener, p graphql.ResolveParams) (interface{}, error) {
+func (c *Comment) OnUnsubscribe(p graphql.ResolveParams) (interface{}, error) {
 	user := p.Context.Value("user").(ConnectedUser)
 	connID := p.Context.Value("connID").(string)
-	listener.Unsubscribe(connID, user.Name())
+	c.unsubscribeChan <- gss.NewUnsubscribeEvent(connID, user.Name())
 	return newDummyResponse(), nil
 }
