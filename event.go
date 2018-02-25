@@ -1,9 +1,10 @@
 package gss
 
 type SubscribeEvent struct {
-	Channel string
-	ConnID  string
-	User    string
+	Channel        string
+	ConnID         string
+	SubscriptionID string
+	User           string
 }
 
 type UnsubscribeEvent struct {
@@ -11,8 +12,8 @@ type UnsubscribeEvent struct {
 	User   string
 }
 
-func NewSubscribeEvent(channel, connid, user string) *SubscribeEvent {
-	return &SubscribeEvent{Channel: channel, ConnID: connid, User: user}
+func NewSubscribeEvent(channel, connid, subid, user string) *SubscribeEvent {
+	return &SubscribeEvent{Channel: channel, ConnID: connid, SubscriptionID: subid, User: user}
 }
 
 func NewUnsubscribeEvent(connid, user string) *UnsubscribeEvent {

@@ -59,7 +59,7 @@ func (s *SubscribeService) Subscriptions() graphqlws.Subscriptions {
 	return (*s.pool).Subscriptions()
 }
 
-func (s *SubscribeService) Publish(connIds map[string]bool, payload interface{}) {
+func (s *SubscribeService) Publish(connIds ConnIDBySubscriptionID, payload interface{}) {
 	for conn, _ := range s.Subscriptions() {
 		if _, exists := connIds[conn.ID()]; exists {
 			for _, sub := range s.Subscriptions()[conn] {
@@ -98,17 +98,17 @@ func (s *SubscribeService) Start(ctx context.Context, wg *sync.WaitGroup) {
 			case <-ctx.Done():
 				return
 			case data := <-s.notifyChan:
-				var connIds map[string]bool
+				var connIds ConnIDBySubscriptionID
 				if len(data.Users) > 0 {
-					connIds = filter.GetUserSubscriptions(data.Channel, data.Users)
+					connIds = filter.GetUserSubscriptionIDs(data.Channel, data.Users)
 				} else {
-					connIds = filter.GetChannelSubscriptions(data.Channel)
+					connIds = filter.GetChannelSubscriptionIDs(data.Channel)
 				}
 				if len(connIds) > 0 {
 					go s.Publish(connIds, data.Payload)
 				}
 			case data := <-s.subChan:
-				s.filter.Subscribe(data.Channel, data.ConnID, data.User)
+				s.filter.Subscribe(data.Channel, data.ConnID, data.SubscriptionID, data.User)
 			case data := <-s.unsubChan:
 				s.filter.Unsubscribe(data.ConnID, data.User)
 			}

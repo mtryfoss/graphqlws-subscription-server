@@ -5,11 +5,13 @@ import (
 	"sync"
 )
 
+type ConnIDBySubscriptionID map[string]string
+
 type SubscribeFilter interface {
-	Subscribe(channelName, subscriptionID, userID string)
+	Subscribe(channelName, subscriptionID, connID, userID string)
 	Unsubscribe(subscriptionID, userID string) error
-	GetChannelSubscriptions(channelName string) map[string]bool
-	GetUserSubscriptions(channelName string, userIDs []string) map[string]bool
+	GetChannelSubscriptionIDs(channelName string) ConnIDBySubscriptionID
+	GetUserSubscriptionIDs(channelName string, userIDs []string) ConnIDBySubscriptionID
 }
 
 type subscribeFilter struct {
@@ -41,12 +43,12 @@ func (f *subscribeFilter) GetMapsByChannel(channelName string) (*sync.Map, error
 	return idmap, nil
 }
 
-func (f *subscribeFilter) Subscribe(channel, subscriptionID, userId string) {
+func (f *subscribeFilter) Subscribe(channel, subscriptionID, connID, userId string) {
 	if connList, exists := f.subscriptionIDByChannelMap[channel]; exists {
-		connList.Store(subscriptionID, true)
+		connList.Store(subscriptionID, connID)
 	} else {
 		store := &sync.Map{}
-		store.Store(subscriptionID, true)
+		store.Store(subscriptionID, connID)
 		f.subscriptionIDByChannelMap[channel] = store
 	}
 	if connList, exists := f.subscriptionIDByUserMap[userId]; exists {
@@ -86,32 +88,32 @@ func (f *subscribeFilter) Unsubscribe(subscriptionID, userId string) error {
 	return nil
 }
 
-func (f *subscribeFilter) GetChannelSubscriptions(channel string) map[string]bool {
-	subscriptionIDs := map[string]bool{}
+func (f *subscribeFilter) GetChannelSubscriptions(channel string) ConnIDBySubscriptionID {
+	subscriptionIDs := ConnIDBySubscriptionID{}
 	if connList, exists := f.subscriptionIDByChannelMap[channel]; exists {
 		connList.Range(func(k, v interface{}) bool {
-			subscriptionIDs[k.(string)] = true
+			subscriptionIDs[k.(string)] = v.(string)
 			return true
 		})
 	}
 	return subscriptionIDs
 }
 
-func (f *subscribeFilter) GetUserSubscriptions(channel string, userIds []string) map[string]bool {
-	subscriptionIDs := map[string]bool{}
+func (f *subscribeFilter) GetUserSubscriptions(channel string, userIds []string) ConnIDBySubscriptionID {
+	subscriptionIDs := ConnIDBySubscriptionID{}
 	if connList, exists := f.subscriptionIDByChannelMap[channel]; exists {
 		connList.Range(func(k, v interface{}) bool {
-			subscriptionIDs[k.(string)] = true
+			subscriptionIDs[k.(string)] = v.(string)
 			return true
 		})
 	}
-	usersubscriptionIDs := map[string]bool{}
+	usersubscriptionIDs := ConnIDBySubscriptionID{}
 	for _, uid := range userIds {
 		if connList, exists := f.subscriptionIDByUserMap[uid]; exists {
 			connList.Range(func(k, v interface{}) bool {
 				subscriptionID := k.(string)
-				if _, exists := subscriptionIDs[subscriptionID]; exists {
-					usersubscriptionIDs[subscriptionID] = true
+				if v, exists := subscriptionIDs[subscriptionID]; exists {
+					usersubscriptionIDs[subscriptionID] = v
 				}
 				return true
 			})
