@@ -33,7 +33,8 @@ func NewSubscribeService(schema *graphql.Schema, handleCount uint, subChan chan 
 }
 
 func (s *SubscribeService) AddSubscription(conn graphqlws.Connection, sub *graphqlws.Subscription) []error {
-	s.calculator.Do(buildCtx("onSubscribe", true, conn), sub.Query, sub.Variables, sub.OperationName)
+	rctx := NewResolveContext(conn.ID(), sub.ID, conn.User(), "onSubscribe", true)
+	s.calculator.DoGraphQL(rctx, sub.Query, sub.Variables, sub.OperationName)
 	errs := (*s.pool).AddSubscription(conn, sub)
 	if errs != nil {
 		return errs
@@ -43,14 +44,15 @@ func (s *SubscribeService) AddSubscription(conn graphqlws.Connection, sub *graph
 }
 
 func (s *SubscribeService) RemoveSubscription(conn graphqlws.Connection, sub *graphqlws.Subscription) {
-	s.calculator.Do(buildCtx("onUnsubscribe", true, conn), sub.Query, sub.Variables, sub.OperationName)
+	rctx := NewResolveContext(conn.ID(), sub.ID, conn.User(), "onUnsubscribe", true)
+	s.calculator.DoGraphQL(rctx, sub.Query, sub.Variables, sub.OperationName)
 	(*s.pool).RemoveSubscription(conn, sub)
 }
 
 func (s *SubscribeService) RemoveSubscriptions(conn graphqlws.Connection) {
-	ctx := buildCtx("onUnsubscribe", true, conn)
 	for _, sub := range s.Subscriptions()[conn] {
-		s.calculator.Do(ctx, sub.Query, sub.Variables, sub.OperationName)
+		rctx := NewResolveContext(conn.ID(), sub.ID, conn.User(), "onUnsubscribe", true)
+		s.calculator.DoGraphQL(rctx, sub.Query, sub.Variables, sub.OperationName)
 	}
 	(*s.pool).RemoveSubscriptions(conn)
 }
@@ -62,8 +64,9 @@ func (s *SubscribeService) Subscriptions() graphqlws.Subscriptions {
 func (s *SubscribeService) Publish(connIds ConnIDBySubscriptionID, payload interface{}) {
 	for conn, _ := range s.Subscriptions() {
 		if _, exists := connIds[conn.ID()]; exists {
-			for _, sub := range s.Subscriptions()[conn] {
-				res := s.calculator.Do(buildCtx("payload", payload, conn), sub.Query, sub.Variables, sub.OperationName)
+			for subID, sub := range s.Subscriptions()[conn] {
+				rctx := NewResolveContext(conn.ID(), subID, conn.User(), "payload", payload)
+				res := s.calculator.DoGraphQL(rctx, sub.Query, sub.Variables, sub.OperationName)
 				d := &graphqlws.DataMessagePayload{
 					Data: res.Data,
 				}

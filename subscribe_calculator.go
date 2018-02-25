@@ -3,12 +3,38 @@ package gss
 import (
 	"context"
 
-	"github.com/functionalfoundry/graphqlws"
 	"github.com/graphql-go/graphql"
 )
 
+type ResolveContext struct {
+	ConnectionID   string
+	SubscriptionID string
+	User           interface{}
+	EventKey       string
+	EventVal       interface{}
+}
+
+func NewResolveContext(connID, subID string, user interface{}, eKey string, eVal interface{}) *ResolveContext {
+	return &ResolveContext{
+		ConnectionID:   connID,
+		SubscriptionID: subID,
+		User:           user,
+		EventKey:       eKey,
+		EventVal:       eVal,
+	}
+}
+
+func (r *ResolveContext) BuildContext() context.Context {
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, ListenerContextKey(r.EventKey), r.EventVal)
+	ctx = context.WithValue(ctx, ListenerContextKey("connID"), r.ConnectionID)
+	ctx = context.WithValue(ctx, ListenerContextKey("subscriptionID"), r.SubscriptionID)
+	ctx = context.WithValue(ctx, ListenerContextKey("user"), r.User)
+	return ctx
+}
+
 type SubscribeCalculator interface {
-	Do(ctx context.Context, query string, variables map[string]interface{}, opName string) *graphql.Result
+	DoGraphQL(rctx *ResolveContext, query string, variables map[string]interface{}, opName string) *graphql.Result
 }
 
 type subscribeCalculator struct {
@@ -22,20 +48,12 @@ func NewSubscribeCalculator(schema *graphql.Schema) *subscribeCalculator {
 	}
 }
 
-func buildCtx(eventName string, eventVal interface{}, conn graphqlws.Connection) context.Context {
-	ctx := context.Background()
-	ctx = context.WithValue(ctx, ListenerContextKey(eventName), eventVal)
-	ctx = context.WithValue(ctx, ListenerContextKey("connID"), conn.ID())
-	ctx = context.WithValue(ctx, ListenerContextKey("user"), conn.User())
-	return ctx
-}
-
-func (c *subscribeCalculator) Do(ctx context.Context, query string, variables map[string]interface{}, opName string) *graphql.Result {
+func (c *subscribeCalculator) DoGraphQL(rctx *ResolveContext, query string, variables map[string]interface{}, opName string) *graphql.Result {
 	return graphql.Do(graphql.Params{
 		Schema:         *c.schema, // The GraphQL schema
 		RequestString:  query,
 		VariableValues: variables,
 		OperationName:  opName,
-		Context:        ctx,
+		Context:        rctx.BuildContext(),
 	})
 }
