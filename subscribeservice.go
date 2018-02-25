@@ -61,8 +61,8 @@ func (s *SubscribeService) Subscriptions() graphqlws.Subscriptions {
 }
 
 func (s *SubscribeService) Publish(connIds ConnIDBySubscriptionID, payload interface{}) {
-	for conn, subsById := range s.pool.Subscriptions() {
-		for subID, sub := range subsById {
+	for conn, subsByID := range s.pool.Subscriptions() {
+		for subID, sub := range subsByID {
 			if _, exists := connIds[subID]; exists {
 				rctx := NewResolveContext(conn.ID(), subID, conn.User(), "payload", payload)
 				res := s.calculator.DoGraphQL(rctx, sub.Query, sub.Variables, sub.OperationName)
