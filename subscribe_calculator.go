@@ -26,10 +26,10 @@ func NewResolveContext(connID, subID string, user interface{}, eKey string, eVal
 
 func (r *ResolveContext) BuildContext() context.Context {
 	ctx := context.Background()
-	ctx = context.WithValue(ctx, ListenerContextKey(r.EventKey), r.EventVal)
-	ctx = context.WithValue(ctx, ListenerContextKey("connID"), r.ConnectionID)
-	ctx = context.WithValue(ctx, ListenerContextKey("subscriptionID"), r.SubscriptionID)
-	ctx = context.WithValue(ctx, ListenerContextKey("user"), r.User)
+	ctx = context.WithValue(ctx, GraphQLContextKey(r.EventKey), r.EventVal)
+	ctx = context.WithValue(ctx, GraphQLContextKey("connID"), r.ConnectionID)
+	ctx = context.WithValue(ctx, GraphQLContextKey("subscriptionID"), r.SubscriptionID)
+	ctx = context.WithValue(ctx, GraphQLContextKey("user"), r.User)
 	return ctx
 }
 

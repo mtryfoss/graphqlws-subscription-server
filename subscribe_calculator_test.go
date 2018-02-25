@@ -12,16 +12,16 @@ func TestNewResolveContext(t *testing.T) {
 	rctx := NewResolveContext("connID1", "subscriptionID1", user, "ek1", "ev1")
 	ctx := rctx.BuildContext()
 
-	if ctx.Value(ListenerContextKey("connID")).(string) != "connID1" {
+	if ctx.Value(GraphQLContextKey("connID")).(string) != "connID1" {
 		t.Error("ConnectionID is expected as connID1")
 	}
-	if ctx.Value(ListenerContextKey("subscriptionID")).(string) != "subscriptionID1" {
+	if ctx.Value(GraphQLContextKey("subscriptionID")).(string) != "subscriptionID1" {
 		t.Error("SubscriptionID is expected as subscriptionID1")
 	}
-	if ctx.Value(ListenerContextKey("user")) == nil {
+	if ctx.Value(GraphQLContextKey("user")) == nil {
 		t.Error("User should exists")
 	}
-	if ctx.Value(ListenerContextKey("ek1")).(string) != "ev1" {
+	if ctx.Value(GraphQLContextKey("ek1")).(string) != "ev1" {
 		t.Error("EventKey is expected as ek1 and EventVal is expected as ev1")
 	}
 }
@@ -35,7 +35,7 @@ func TestDoGraphQL(t *testing.T) {
 		"hello": &graphql.Field{
 			Type: graphql.String,
 			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-				v, _ := p.Context.Value(ListenerContextKey("user")).(map[string]string)["foo"]
+				v, _ := p.Context.Value(GraphQLContextKey("user")).(map[string]string)["foo"]
 				return v, nil
 			},
 		},

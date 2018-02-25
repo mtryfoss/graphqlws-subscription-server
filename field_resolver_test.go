@@ -21,12 +21,12 @@ func (t *GraphQLResolveTest1) OnPayload(payload interface{}, p graphql.ResolvePa
 
 func (t *GraphQLResolveTest1) OnSubscribe(p graphql.ResolveParams) (interface{}, error) {
 	t.OnSubscribeCalled = true
-	return p.Context.Value(ListenerContextKey("onSubscribe")), nil
+	return p.Context.Value(GraphQLContextKey("onSubscribe")), nil
 }
 
 func (t *GraphQLResolveTest1) OnUnsubscribe(p graphql.ResolveParams) (interface{}, error) {
 	t.OnUnsubscribeCalled = true
-	return p.Context.Value(ListenerContextKey("onUnsubscribe")), nil
+	return p.Context.Value(GraphQLContextKey("onUnsubscribe")), nil
 }
 
 type TestBuildResolveCase struct {
@@ -59,7 +59,7 @@ func TestBuildResolve(t *testing.T) {
 	cases := []TestBuildResolveCase{
 		TestBuildResolveCase{
 			Label:               "onSubscribe",
-			ContextKey:          ListenerContextKey("onSubscribe"),
+			ContextKey:          GraphQLContextKey("onSubscribe"),
 			ContextVal:          "a",
 			OnPayloadCalled:     false,
 			OnSubscribeCalled:   true,
@@ -67,7 +67,7 @@ func TestBuildResolve(t *testing.T) {
 		},
 		TestBuildResolveCase{
 			Label:               "onUnsubscribe",
-			ContextKey:          ListenerContextKey("onUnsubscribe"),
+			ContextKey:          GraphQLContextKey("onUnsubscribe"),
 			ContextVal:          "b",
 			OnPayloadCalled:     false,
 			OnSubscribeCalled:   false,
@@ -75,7 +75,7 @@ func TestBuildResolve(t *testing.T) {
 		},
 		TestBuildResolveCase{
 			Label:               "onPayload",
-			ContextKey:          ListenerContextKey("payload"),
+			ContextKey:          GraphQLContextKey("payload"),
 			ContextVal:          "foobar",
 			OnPayloadCalled:     true,
 			OnSubscribeCalled:   false,

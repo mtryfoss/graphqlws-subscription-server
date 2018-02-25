@@ -8,7 +8,7 @@ import (
 	"github.com/graphql-go/graphql"
 )
 
-type ListenerContextKey string
+type GraphQLContextKey string
 
 type SubscribeService struct {
 	graphqlws.SubscriptionManager
