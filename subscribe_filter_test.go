@@ -33,9 +33,6 @@ func TestChannelManagerSubscribeAndUnsubscribe(t *testing.T) {
 		t.Error("subscriptionID1 not registered")
 	}
 
-	var connections ConnIDBySubscriptionID
-	var connectionsB map[string]bool
-
 	subscriptionID2 := "sub2"
 	connID2 := "conn2"
 	userID2 := "fuga"
@@ -46,14 +43,14 @@ func TestChannelManagerSubscribeAndUnsubscribe(t *testing.T) {
 	f.Subscribe(chanName2, subscriptionID3, connID1, userID1)
 
 	idmap, _ = f.GetMapsByUser(userID1)
-	connectionsB = getConnsFromSyncMapB(idmap)
-	if len(connectionsB) != 2 {
+	connections := getConnsFromSyncMap(idmap)
+	if len(connections) != 2 {
 		t.Error("userID1 connections not enough")
 	}
-	if _, exists := connectionsB[subscriptionID1]; !exists {
+	if _, exists := connections[subscriptionID1]; !exists {
 		t.Error("subscriptionID1 not registered")
 	}
-	if _, exists := connectionsB[subscriptionID3]; !exists {
+	if _, exists := connections[subscriptionID3]; !exists {
 		t.Error("subscriptionID3 not registered")
 	}
 
@@ -99,19 +96,19 @@ func TestChannelManagerSubscribeAndUnsubscribe(t *testing.T) {
 	}
 
 	idmap, _ = f.GetMapsByUser(userID1)
-	connectionsB = getConnsFromSyncMapB(idmap)
-	if len(connectionsB) != 1 {
-		t.Error("rest connections is 1")
-	}
-	if _, exists := connectionsB[subscriptionID3]; !exists {
-		t.Error("subscriptionID3 should exists")
-	}
-	idmap, _ = f.GetMapsByUser(userID2)
-	connectionsB = getConnsFromSyncMapB(idmap)
+	connections = getConnsFromSyncMap(idmap)
 	if len(connections) != 1 {
 		t.Error("rest connections is 1")
 	}
-	if _, exists := connectionsB[subscriptionID2]; !exists {
+	if _, exists := connections[subscriptionID3]; !exists {
+		t.Error("subscriptionID3 should exists")
+	}
+	idmap, _ = f.GetMapsByUser(userID2)
+	connections = getConnsFromSyncMap(idmap)
+	if len(connections) != 1 {
+		t.Error("rest connections is 1")
+	}
+	if _, exists := connections[subscriptionID2]; !exists {
 		t.Error("subscriptionID2 should exists")
 	}
 
@@ -212,15 +209,6 @@ func getConnsFromSyncMap(m *sync.Map) ConnIDBySubscriptionID {
 	connections := ConnIDBySubscriptionID{}
 	m.Range(func(k, v interface{}) bool {
 		connections[k.(string)] = v.(string)
-		return true
-	})
-	return connections
-}
-
-func getConnsFromSyncMapB(m *sync.Map) map[string]bool {
-	connections := map[string]bool{}
-	m.Range(func(k, v interface{}) bool {
-		connections[k.(string)] = true
 		return true
 	})
 	return connections

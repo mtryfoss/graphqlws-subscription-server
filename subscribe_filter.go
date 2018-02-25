@@ -52,10 +52,10 @@ func (f *subscribeFilter) Subscribe(channel, subscriptionID, connID, userId stri
 		f.subscriptionIDByChannelMap[channel] = store
 	}
 	if connList, exists := f.subscriptionIDByUserMap[userId]; exists {
-		connList.Store(subscriptionID, true)
+		connList.Store(subscriptionID, connID)
 	} else {
 		store := &sync.Map{}
-		store.Store(subscriptionID, true)
+		store.Store(subscriptionID, connID)
 		f.subscriptionIDByUserMap[userId] = store
 	}
 }
