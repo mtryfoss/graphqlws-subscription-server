@@ -12,7 +12,7 @@ type ListenerContextKey string
 
 type SubscribeService struct {
 	graphqlws.SubscriptionManager
-	pool       *graphqlws.SubscriptionManager
+	pool       graphqlws.SubscriptionManager
 	calculator SubscribeCalculator
 	filter     SubscribeFilter
 	notifyChan chan *RequestData
@@ -21,9 +21,8 @@ type SubscribeService struct {
 }
 
 func NewSubscribeService(schema *graphql.Schema, handleCount uint, subChan chan *SubscribeEvent, unsubChan chan *UnsubscribeEvent) *SubscribeService {
-	pool := graphqlws.NewSubscriptionManager(schema)
 	return &SubscribeService{
-		pool:       &pool,
+		pool:       graphqlws.NewSubscriptionManager(schema),
 		filter:     NewSubscribeFilter(),
 		calculator: NewSubscribeCalculator(schema),
 		notifyChan: make(chan *RequestData, handleCount),
@@ -35,7 +34,7 @@ func NewSubscribeService(schema *graphql.Schema, handleCount uint, subChan chan 
 func (s *SubscribeService) AddSubscription(conn graphqlws.Connection, sub *graphqlws.Subscription) []error {
 	rctx := NewResolveContext(conn.ID(), sub.ID, conn.User(), "onSubscribe", true)
 	s.calculator.DoGraphQL(rctx, sub.Query, sub.Variables, sub.OperationName)
-	errs := (*s.pool).AddSubscription(conn, sub)
+	errs := s.pool.AddSubscription(conn, sub)
 	if errs != nil {
 		return errs
 	}
@@ -46,7 +45,7 @@ func (s *SubscribeService) AddSubscription(conn graphqlws.Connection, sub *graph
 func (s *SubscribeService) RemoveSubscription(conn graphqlws.Connection, sub *graphqlws.Subscription) {
 	rctx := NewResolveContext(conn.ID(), sub.ID, conn.User(), "onUnsubscribe", true)
 	s.calculator.DoGraphQL(rctx, sub.Query, sub.Variables, sub.OperationName)
-	(*s.pool).RemoveSubscription(conn, sub)
+	s.pool.RemoveSubscription(conn, sub)
 }
 
 func (s *SubscribeService) RemoveSubscriptions(conn graphqlws.Connection) {
@@ -54,15 +53,15 @@ func (s *SubscribeService) RemoveSubscriptions(conn graphqlws.Connection) {
 		rctx := NewResolveContext(conn.ID(), sub.ID, conn.User(), "onUnsubscribe", true)
 		s.calculator.DoGraphQL(rctx, sub.Query, sub.Variables, sub.OperationName)
 	}
-	(*s.pool).RemoveSubscriptions(conn)
+	s.pool.RemoveSubscriptions(conn)
 }
 
 func (s *SubscribeService) Subscriptions() graphqlws.Subscriptions {
-	return (*s.pool).Subscriptions()
+	return s.pool.Subscriptions()
 }
 
 func (s *SubscribeService) Publish(connIds ConnIDBySubscriptionID, payload interface{}) {
-	for conn, subsById := range s.Subscriptions() {
+	for conn, subsById := range s.pool.Subscriptions() {
 		for subID, sub := range subsById {
 			if _, exists := connIds[subID]; exists {
 				rctx := NewResolveContext(conn.ID(), subID, conn.User(), "payload", payload)
