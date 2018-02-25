@@ -6,27 +6,27 @@ import (
 )
 
 type SubscribeFilter interface {
-	Subscribe(channelName, connID, userID string)
-	Unsubscribe(connID, userID string) error
+	Subscribe(channelName, subscriptionID, userID string)
+	Unsubscribe(subscriptionID, userID string) error
 	GetChannelSubscriptions(channelName string) map[string]bool
 	GetUserSubscriptions(channelName string, userIDs []string) map[string]bool
 }
 
 type subscribeFilter struct {
 	SubscribeFilter
-	connIDByUserMap    map[string]*sync.Map
-	connIDByChannelMap map[string]*sync.Map
+	subscriptionIDByUserMap    map[string]*sync.Map
+	subscriptionIDByChannelMap map[string]*sync.Map
 }
 
 func NewSubscribeFilter() *subscribeFilter {
 	return &subscribeFilter{
-		connIDByUserMap:    map[string]*sync.Map{},
-		connIDByChannelMap: map[string]*sync.Map{},
+		subscriptionIDByUserMap:    map[string]*sync.Map{},
+		subscriptionIDByChannelMap: map[string]*sync.Map{},
 	}
 }
 
 func (f *subscribeFilter) GetMapsByUser(userID string) (*sync.Map, error) {
-	idmap, exists := f.connIDByUserMap[userID]
+	idmap, exists := f.subscriptionIDByUserMap[userID]
 	if !exists {
 		return nil, errors.New("userID: " + userID + " not registered")
 	}
@@ -34,27 +34,27 @@ func (f *subscribeFilter) GetMapsByUser(userID string) (*sync.Map, error) {
 }
 
 func (f *subscribeFilter) GetMapsByChannel(channelName string) (*sync.Map, error) {
-	idmap, exists := f.connIDByChannelMap[channelName]
+	idmap, exists := f.subscriptionIDByChannelMap[channelName]
 	if !exists {
 		return nil, errors.New("channelName: " + channelName + " not registered")
 	}
 	return idmap, nil
 }
 
-func (f *subscribeFilter) Subscribe(channel, connId, userId string) {
-	if connList, exists := f.connIDByChannelMap[channel]; exists {
-		connList.Store(connId, true)
+func (f *subscribeFilter) Subscribe(channel, subscriptionID, userId string) {
+	if connList, exists := f.subscriptionIDByChannelMap[channel]; exists {
+		connList.Store(subscriptionID, true)
 	} else {
 		store := &sync.Map{}
-		store.Store(connId, true)
-		f.connIDByChannelMap[channel] = store
+		store.Store(subscriptionID, true)
+		f.subscriptionIDByChannelMap[channel] = store
 	}
-	if connList, exists := f.connIDByUserMap[userId]; exists {
-		connList.Store(connId, true)
+	if connList, exists := f.subscriptionIDByUserMap[userId]; exists {
+		connList.Store(subscriptionID, true)
 	} else {
 		store := &sync.Map{}
-		store.Store(connId, true)
-		f.connIDByUserMap[userId] = store
+		store.Store(subscriptionID, true)
+		f.subscriptionIDByUserMap[userId] = store
 	}
 }
 
@@ -67,19 +67,19 @@ func keyExists(m *sync.Map) bool {
 	return cnt > 0
 }
 
-func (f *subscribeFilter) Unsubscribe(connId, userId string) error {
+func (f *subscribeFilter) Unsubscribe(subscriptionID, userId string) error {
 	userStore, err := f.GetMapsByUser(userId)
 	if err != nil {
 		return err
 	}
-	userStore.Delete(connId)
+	userStore.Delete(subscriptionID)
 	if !keyExists(userStore) {
-		delete(f.connIDByUserMap, userId)
+		delete(f.subscriptionIDByUserMap, userId)
 	}
-	for chname, store := range f.connIDByChannelMap {
-		store.Delete(connId)
+	for chname, store := range f.subscriptionIDByChannelMap {
+		store.Delete(subscriptionID)
 		if !keyExists(store) {
-			delete(f.connIDByChannelMap, chname)
+			delete(f.subscriptionIDByChannelMap, chname)
 		}
 	}
 
@@ -87,35 +87,35 @@ func (f *subscribeFilter) Unsubscribe(connId, userId string) error {
 }
 
 func (f *subscribeFilter) GetChannelSubscriptions(channel string) map[string]bool {
-	connIds := map[string]bool{}
-	if connList, exists := f.connIDByChannelMap[channel]; exists {
+	subscriptionIDs := map[string]bool{}
+	if connList, exists := f.subscriptionIDByChannelMap[channel]; exists {
 		connList.Range(func(k, v interface{}) bool {
-			connIds[k.(string)] = true
+			subscriptionIDs[k.(string)] = true
 			return true
 		})
 	}
-	return connIds
+	return subscriptionIDs
 }
 
 func (f *subscribeFilter) GetUserSubscriptions(channel string, userIds []string) map[string]bool {
-	connIds := map[string]bool{}
-	if connList, exists := f.connIDByChannelMap[channel]; exists {
+	subscriptionIDs := map[string]bool{}
+	if connList, exists := f.subscriptionIDByChannelMap[channel]; exists {
 		connList.Range(func(k, v interface{}) bool {
-			connIds[k.(string)] = true
+			subscriptionIDs[k.(string)] = true
 			return true
 		})
 	}
-	userConnIds := map[string]bool{}
+	usersubscriptionIDs := map[string]bool{}
 	for _, uid := range userIds {
-		if connList, exists := f.connIDByUserMap[uid]; exists {
+		if connList, exists := f.subscriptionIDByUserMap[uid]; exists {
 			connList.Range(func(k, v interface{}) bool {
-				connID := k.(string)
-				if _, exists := connIds[connID]; exists {
-					userConnIds[connID] = true
+				subscriptionID := k.(string)
+				if _, exists := subscriptionIDs[subscriptionID]; exists {
+					usersubscriptionIDs[subscriptionID] = true
 				}
 				return true
 			})
 		}
 	}
-	return userConnIds
+	return usersubscriptionIDs
 }

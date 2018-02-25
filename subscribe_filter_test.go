@@ -8,9 +8,9 @@ import (
 func TestChannelManagerSubscribeAndUnsubscribe(t *testing.T) {
 	m := NewSubscribeFilter()
 	chanName1 := "foo"
-	connID1 := "conn1"
+	subscriptionID1 := "conn1"
 	userID1 := "hoge"
-	m.Subscribe(chanName1, connID1, userID1)
+	m.Subscribe(chanName1, subscriptionID1, userID1)
 	idmap, err := m.GetMapsByUser("fuga")
 	if idmap != nil {
 		t.Error("wrong user map exists")
@@ -28,28 +28,28 @@ func TestChannelManagerSubscribeAndUnsubscribe(t *testing.T) {
 	if err != nil {
 		t.Error("error should not exists")
 	}
-	if _, ok := idmap.Load(connID1); !ok {
-		t.Error("connID1 not registered")
+	if _, ok := idmap.Load(subscriptionID1); !ok {
+		t.Error("subscriptionID1 not registered")
 	}
 
-	connID2 := "conn2"
+	subscriptionID2 := "conn2"
 	userID2 := "fuga"
-	m.Subscribe(chanName1, connID2, userID2)
+	m.Subscribe(chanName1, subscriptionID2, userID2)
 
 	chanName2 := "bar"
-	connID3 := "conn3"
-	m.Subscribe(chanName2, connID3, userID1)
+	subscriptionID3 := "conn3"
+	m.Subscribe(chanName2, subscriptionID3, userID1)
 
 	idmap, _ = m.GetMapsByUser(userID1)
 	connections := getConnsFromSyncMap(idmap)
 	if len(connections) != 2 {
 		t.Error("userID1 connections not enough")
 	}
-	if _, exists := connections[connID1]; !exists {
-		t.Error("connID1 not registered")
+	if _, exists := connections[subscriptionID1]; !exists {
+		t.Error("subscriptionID1 not registered")
 	}
-	if _, exists := connections[connID3]; !exists {
-		t.Error("connID3 not registered")
+	if _, exists := connections[subscriptionID3]; !exists {
+		t.Error("subscriptionID3 not registered")
 	}
 
 	idmap, err = m.GetMapsByChannel("baz")
@@ -73,22 +73,22 @@ func TestChannelManagerSubscribeAndUnsubscribe(t *testing.T) {
 	if len(connections) != 2 {
 		t.Error("chanName1 connections not enough")
 	}
-	if _, exists := connections[connID1]; !exists {
-		t.Error("connID1 should exists")
+	if _, exists := connections[subscriptionID1]; !exists {
+		t.Error("subscriptionID1 should exists")
 	}
-	if _, exists := connections[connID2]; !exists {
-		t.Error("connID2 should exists")
+	if _, exists := connections[subscriptionID2]; !exists {
+		t.Error("subscriptionID2 should exists")
 	}
 	idmap, _ = m.GetMapsByChannel(chanName2)
 	connections = getConnsFromSyncMap(idmap)
 	if len(connections) != 1 {
 		t.Error("chanName2 connections not enough")
 	}
-	if _, exists := connections[connID3]; !exists {
-		t.Error("connID3 should exists")
+	if _, exists := connections[subscriptionID3]; !exists {
+		t.Error("subscriptionID3 should exists")
 	}
 
-	err = m.Unsubscribe(connID1, userID1)
+	err = m.Unsubscribe(subscriptionID1, userID1)
 	if err != nil {
 		t.Error("error should not exists")
 	}
@@ -98,16 +98,16 @@ func TestChannelManagerSubscribeAndUnsubscribe(t *testing.T) {
 	if len(connections) != 1 {
 		t.Error("rest connections is 1")
 	}
-	if _, exists := connections[connID3]; !exists {
-		t.Error("connID3 should exists")
+	if _, exists := connections[subscriptionID3]; !exists {
+		t.Error("subscriptionID3 should exists")
 	}
 	idmap, _ = m.GetMapsByUser(userID2)
 	connections = getConnsFromSyncMap(idmap)
 	if len(connections) != 1 {
 		t.Error("rest connections is 1")
 	}
-	if _, exists := connections[connID2]; !exists {
-		t.Error("connID2 should exists")
+	if _, exists := connections[subscriptionID2]; !exists {
+		t.Error("subscriptionID2 should exists")
 	}
 
 	idmap, _ = m.GetMapsByChannel(chanName1)
@@ -115,8 +115,8 @@ func TestChannelManagerSubscribeAndUnsubscribe(t *testing.T) {
 	if len(connections) != 1 {
 		t.Error("rest connections is 1")
 	}
-	if _, exists := connections[connID2]; !exists {
-		t.Error("connID2 should exists")
+	if _, exists := connections[subscriptionID2]; !exists {
+		t.Error("subscriptionID2 should exists")
 	}
 
 	idmap, _ = m.GetMapsByChannel(chanName2)
@@ -124,11 +124,11 @@ func TestChannelManagerSubscribeAndUnsubscribe(t *testing.T) {
 	if len(connections) != 1 {
 		t.Error("rest connections is 1")
 	}
-	if _, exists := connections[connID3]; !exists {
-		t.Error("connID2 should exists")
+	if _, exists := connections[subscriptionID3]; !exists {
+		t.Error("subscriptionID2 should exists")
 	}
 
-	m.Unsubscribe(connID2, userID2)
+	m.Unsubscribe(subscriptionID2, userID2)
 
 	idmap, err = m.GetMapsByChannel(chanName1)
 	if idmap != nil {
