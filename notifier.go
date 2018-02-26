@@ -61,6 +61,6 @@ func (h *NotificationHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 	w.Write(successResponse())
 }
 
-func NewNotifyHandler(ch chan *RequestData) http.Handler {
-	return &NotificationHandler{notifyChan: ch}
+func (s *SubscribeService) NewNotifyHandler() http.Handler {
+	return &NotificationHandler{notifyChan: s.GetNotifierChan()}
 }

@@ -2,6 +2,7 @@ package gss
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/functionalfoundry/graphqlws"
 	"github.com/graphql-go/graphql"
@@ -82,4 +83,11 @@ func (s *SubscribeService) Publish(reqData *RequestData) {
 
 func (s *SubscribeService) GetNotifierChan() chan *RequestData {
 	return s.notifyChan
+}
+
+func (s *SubscribeService) NewSubscriptionHandler(authCallback graphqlws.AuthenticateFunc) http.Handler {
+	return graphqlws.NewHandler(graphqlws.HandlerConfig{
+		SubscriptionManager: s,
+		Authenticate:        authCallback,
+	})
 }

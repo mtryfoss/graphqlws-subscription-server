@@ -102,4 +102,8 @@ func TestNewSubscribeService(t *testing.T) {
 		t.Error("conn1 should not exists")
 	}
 
+	s.NewSubscriptionHandler(func(tokenstring string) (interface{}, error) {
+		return user, nil
+	})
+	s.NewNotifyHandler()
 }
