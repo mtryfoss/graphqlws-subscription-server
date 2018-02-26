@@ -15,7 +15,7 @@ func TestChannelManagerSubscribeAndUnsubscribe(t *testing.T) {
 	// Query
 	query := `
 		subscription {
-			hello(id: 1) {
+			hello(id: 1, aaa: "fuu") {
 				foo
 				bar
 			}
@@ -48,7 +48,7 @@ func TestChannelManagerSubscribeAndUnsubscribe(t *testing.T) {
 	if len(sub1.Fields) != 1 {
 		t.Error("subscription.Fields count should be 1")
 	}
-	if sub1.Fields[0] != "hello:1" {
-		t.Error("subscription.Fields[0] should hello:1")
+	if sub1.Fields[0] != "hello:fuu:1" {
+		t.Error("subscription.Fields[0] should hello:fuu:1")
 	}
 }
