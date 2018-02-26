@@ -1,123 +1,95 @@
 package gss
 
 import (
-	"errors"
-	"sync"
+	"sort"
+	"strings"
+
+	"github.com/functionalfoundry/graphqlws"
+	"github.com/graphql-go/graphql/language/ast"
 )
 
-type ConnIDBySubscriptionID map[string]string
-
 type SubscribeFilter interface {
-	Subscribe(channelName, subscriptionID, connID, userID string)
-	Unsubscribe(subscriptionID, userID string) error
-	GetChannelSubscriptionIDs(channelName string) ConnIDBySubscriptionID
-	GetUserSubscriptionIDs(channelName string, userIDs []string) ConnIDBySubscriptionID
+	ReplaceFieldsFromDocument(subscription *graphqlws.Subscription)
 }
 
 type subscribeFilter struct {
 	SubscribeFilter
-	subscriptionIDByUserMap    map[string]*sync.Map
-	subscriptionIDByChannelMap map[string]*sync.Map
 }
 
 func NewSubscribeFilter() *subscribeFilter {
-	return &subscribeFilter{
-		subscriptionIDByUserMap:    map[string]*sync.Map{},
-		subscriptionIDByChannelMap: map[string]*sync.Map{},
-	}
+	return &subscribeFilter{}
 }
 
-func (f *subscribeFilter) GetMapsByUser(userID string) (*sync.Map, error) {
-	idmap, exists := f.subscriptionIDByUserMap[userID]
-	if !exists {
-		return nil, errors.New("userID: " + userID + " not registered")
-	}
-	return idmap, nil
+type astArgs struct {
+	Key string
+	Val string
 }
 
-func (f *subscribeFilter) GetMapsByChannel(channelName string) (*sync.Map, error) {
-	idmap, exists := f.subscriptionIDByChannelMap[channelName]
-	if !exists {
-		return nil, errors.New("channelName: " + channelName + " not registered")
-	}
-	return idmap, nil
-}
-
-func (f *subscribeFilter) Subscribe(channel, subscriptionID, connID, userId string) {
-	if connList, exists := f.subscriptionIDByChannelMap[channel]; exists {
-		connList.Store(subscriptionID, connID)
-	} else {
-		store := &sync.Map{}
-		store.Store(subscriptionID, connID)
-		f.subscriptionIDByChannelMap[channel] = store
-	}
-	if connList, exists := f.subscriptionIDByUserMap[userId]; exists {
-		connList.Store(subscriptionID, connID)
-	} else {
-		store := &sync.Map{}
-		store.Store(subscriptionID, connID)
-		f.subscriptionIDByUserMap[userId] = store
-	}
-}
-
-func keyExists(m *sync.Map) bool {
-	cnt := 0
-	m.Range(func(k, v interface{}) bool {
-		cnt++
-		return false
-	})
-	return cnt > 0
-}
-
-func (f *subscribeFilter) Unsubscribe(subscriptionID, userId string) error {
-	userStore, err := f.GetMapsByUser(userId)
-	if err != nil {
-		return err
-	}
-	userStore.Delete(subscriptionID)
-	if !keyExists(userStore) {
-		delete(f.subscriptionIDByUserMap, userId)
-	}
-	for chname, store := range f.subscriptionIDByChannelMap {
-		store.Delete(subscriptionID)
-		if !keyExists(store) {
-			delete(f.subscriptionIDByChannelMap, chname)
-		}
-	}
-
-	return nil
-}
-
-func (f *subscribeFilter) GetChannelSubscriptions(channel string) ConnIDBySubscriptionID {
-	subscriptionIDs := ConnIDBySubscriptionID{}
-	if connList, exists := f.subscriptionIDByChannelMap[channel]; exists {
-		connList.Range(func(k, v interface{}) bool {
-			subscriptionIDs[k.(string)] = v.(string)
-			return true
-		})
-	}
-	return subscriptionIDs
-}
-
-func (f *subscribeFilter) GetUserSubscriptions(channel string, userIds []string) ConnIDBySubscriptionID {
-	subscriptionIDs := ConnIDBySubscriptionID{}
-	if connList, exists := f.subscriptionIDByChannelMap[channel]; exists {
-		connList.Range(func(k, v interface{}) bool {
-			subscriptionIDs[k.(string)] = v.(string)
-			return true
-		})
-	}
-	usersubscriptionIDs := ConnIDBySubscriptionID{}
-	for _, uid := range userIds {
-		if connList, exists := f.subscriptionIDByUserMap[uid]; exists {
-			connList.Range(func(k, v interface{}) bool {
-				subscriptionID := k.(string)
-				if v, exists := subscriptionIDs[subscriptionID]; exists {
-					usersubscriptionIDs[subscriptionID] = v
+func operationDefinitionsWithOperation(
+	doc *ast.Document,
+	op string,
+) []*ast.OperationDefinition {
+	defs := []*ast.OperationDefinition{}
+	for _, node := range doc.Definitions {
+		if node.GetKind() == "OperationDefinition" {
+			if def, ok := node.(*ast.OperationDefinition); ok {
+				if def.Operation == op {
+					defs = append(defs, def)
 				}
-				return true
-			})
+			}
 		}
 	}
-	return usersubscriptionIDs
+	return defs
+}
+
+func selectionSetsForOperationDefinitions(
+	defs []*ast.OperationDefinition,
+) []*ast.SelectionSet {
+	sets := []*ast.SelectionSet{}
+	for _, def := range defs {
+		if set := def.GetSelectionSet(); set != nil {
+			sets = append(sets, set)
+		}
+	}
+	return sets
+}
+
+func nameForSelectionSet(set *ast.SelectionSet) (string, bool) {
+	if len(set.Selections) >= 1 {
+		if field, ok := set.Selections[0].(*ast.Field); ok {
+			args := []astArgs{}
+			for _, arg := range field.Arguments {
+				args = append(args, astArgs{
+					Key: arg.Name.Value,
+					Val: arg.Value.GetValue().(string),
+				})
+			}
+			sort.Slice(args, func(i, j int) bool {
+				return args[i].Key <= args[j].Key
+			})
+			joinedArgs := []string{field.Name.Value}
+			for _, a := range args {
+				joinedArgs = append(joinedArgs, a.Val)
+			}
+			return strings.Join(joinedArgs, ":"), true
+		}
+	}
+	return "", false
+}
+
+func namesForSelectionSets(sets []*ast.SelectionSet) []string {
+	names := []string{}
+	for _, set := range sets {
+		if name, ok := nameForSelectionSet(set); ok {
+			names = append(names, name)
+		}
+	}
+	return names
+}
+
+func (f *subscribeFilter) ReplaceFieldsFromDocument(subscription *graphqlws.Subscription) {
+	defs := operationDefinitionsWithOperation(subscription.Document, "subscription")
+	sets := selectionSetsForOperationDefinitions(defs)
+	fields := namesForSelectionSets(sets)
+	subscription.Fields = fields
 }
