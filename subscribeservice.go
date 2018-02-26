@@ -57,7 +57,7 @@ func (s *SubscribeService) Publish(reqData *RequestData) {
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, GraphQLContextKey("payload"), reqData.Payload)
 	for conn, subsByID := range s.Pool.Subscriptions() {
-		if !s.canSendToUser(&conn, reqData) {
+		if len(reqData.Users) > 0 && !s.canSendToUser(&conn, reqData) {
 			continue
 		}
 		for _, sub := range subsByID {
