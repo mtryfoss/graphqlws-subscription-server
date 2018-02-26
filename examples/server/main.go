@@ -69,6 +69,8 @@ func main() {
 		}
 	}()
 
+	authCallback := AuthenticateCallback(conf.Auth.SecretKey)
+
 	mux := http.NewServeMux()
 	mux.Handle("/subscription", subService.NewSubscriptionHandler(AuthenticateCallback(conf.Auth.SecretKey)))
 	mux.Handle("/notify", gss.NewNotifyHandler(notifyChan))
