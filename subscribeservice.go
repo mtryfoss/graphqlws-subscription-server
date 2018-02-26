@@ -16,24 +16,18 @@ type SubscribeService struct {
 	calculator SubscribeCalculator
 	filter     SubscribeFilter
 	notifyChan chan *RequestData
-	subChan    chan *SubscribeEvent
-	unsubChan  chan *UnsubscribeEvent
 }
 
-func NewSubscribeService(schema *graphql.Schema, handleCount uint, subChan chan *SubscribeEvent, unsubChan chan *UnsubscribeEvent) *SubscribeService {
+func NewSubscribeService(schema *graphql.Schema, handleCount uint) *SubscribeService {
 	return &SubscribeService{
 		pool:       graphqlws.NewSubscriptionManager(schema),
 		filter:     NewSubscribeFilter(),
 		calculator: NewSubscribeCalculator(schema),
 		notifyChan: make(chan *RequestData, handleCount),
-		subChan:    subChan,
-		unsubChan:  unsubChan,
 	}
 }
 
 func (s *SubscribeService) AddSubscription(conn graphqlws.Connection, sub *graphqlws.Subscription) []error {
-	rctx := NewResolveContext(conn.ID(), sub.ID, conn.User(), "onSubscribe", true)
-	s.calculator.DoGraphQL(rctx, sub.Query, sub.Variables, sub.OperationName)
 	errs := s.pool.AddSubscription(conn, sub)
 	if errs != nil {
 		return errs
@@ -43,16 +37,10 @@ func (s *SubscribeService) AddSubscription(conn graphqlws.Connection, sub *graph
 }
 
 func (s *SubscribeService) RemoveSubscription(conn graphqlws.Connection, sub *graphqlws.Subscription) {
-	rctx := NewResolveContext(conn.ID(), sub.ID, conn.User(), "onUnsubscribe", true)
-	s.calculator.DoGraphQL(rctx, sub.Query, sub.Variables, sub.OperationName)
 	s.pool.RemoveSubscription(conn, sub)
 }
 
 func (s *SubscribeService) RemoveSubscriptions(conn graphqlws.Connection) {
-	for _, sub := range s.Subscriptions()[conn] {
-		rctx := NewResolveContext(conn.ID(), sub.ID, conn.User(), "onUnsubscribe", true)
-		s.calculator.DoGraphQL(rctx, sub.Query, sub.Variables, sub.OperationName)
-	}
 	s.pool.RemoveSubscriptions(conn)
 }
 
@@ -109,10 +97,6 @@ func (s *SubscribeService) Start(ctx context.Context, wg *sync.WaitGroup) {
 				if len(connIds) > 0 {
 					go s.Publish(connIds, data.Payload)
 				}
-			case data := <-s.subChan:
-				s.filter.Subscribe(data.Channel, data.ConnID, data.SubscriptionID, data.User)
-			case data := <-s.unsubChan:
-				s.filter.Unsubscribe(data.ConnID, data.User)
 			}
 		}
 	}()
