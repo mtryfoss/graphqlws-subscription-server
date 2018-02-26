@@ -2,7 +2,6 @@ package gss
 
 import (
 	"context"
-	"sync"
 
 	"github.com/functionalfoundry/graphqlws"
 	"github.com/graphql-go/graphql"
@@ -83,19 +82,4 @@ func (s *SubscribeService) Publish(reqData *RequestData) {
 
 func (s *SubscribeService) GetNotifierChan() chan *RequestData {
 	return s.notifyChan
-}
-
-func (s *SubscribeService) Start(ctx context.Context, wg *sync.WaitGroup) {
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case data := <-s.notifyChan:
-				go s.Publish(data)
-			}
-		}
-	}()
 }

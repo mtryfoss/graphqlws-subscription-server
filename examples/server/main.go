@@ -5,6 +5,8 @@ import (
 	"errors"
 	"flag"
 	"log"
+	"net/http"
+	"strconv"
 	"sync"
 
 	jwt "github.com/dgrijalva/jwt-go"
@@ -25,59 +27,55 @@ func main() {
 		log.Fatalln("conf load error")
 	}
 
-	subChan := make(chan *gss.SubscribeEvent, conf.Server.MaxHandlerCount)
-	unsubChan := make(chan *gss.UnsubscribeEvent, conf.Server.MaxHandlerCount)
-
-	schema, err := graphql.NewSchema(graphql.SchemaConfig{
-		Subscription: graphql.NewObject(
-			graphql.ObjectConfig{
-				Name: "RootSubscription",
-				Fields: graphql.Fields{
-					"newComment": &graphql.Field{
-						Type: graphql.NewObject(graphql.ObjectConfig{
-							Name: "Comment",
-							Fields: graphql.Fields{
-								"id":      &graphql.Field{Type: graphql.NewNonNull(graphql.ID)},
-								"content": &graphql.Field{Type: graphql.NewNonNull(graphql.String)},
-							},
-						}),
-						Args: graphql.FieldConfigArgument{
-							"roomId": &graphql.ArgumentConfig{Type: graphql.NewNonNull(graphql.ID)},
-						},
-						Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-							payload := p.Context.Value(gss.GraphQLContextKey("payload"))
-							if payload == nil {
-								return nil, errors.New("payload not found")
-							}
-							comment := payload.(SampleComment)
-							return comment, nil
-						},
-					},
-				},
-			},
-		),
+	schema, err := getSchema(func(p graphql.ResolveParams) (interface{}, error) {
+		payload := p.Context.Value(gss.GraphQLContextKey("payload"))
+		if payload == nil {
+			return nil, errors.New("payload not found")
+		}
+		comment := payload.(SampleComment)
+		return comment, nil
 	})
 	if err != nil {
 		log.Fatalln("GraphQL schema is invalid")
 	}
 
-	listener := gss.NewListener(&schema, conf.Server.MaxHandlerCount, subChan, unsubChan)
+	canSendToUser := func(conn *graphqlws.Connection, reqData *gss.RequestData) bool {
+		user := (*conn).User().(ConnectedUser)
+		for _, userName := range reqData.Users {
+			if userName == user.Name() {
+				return true
+			}
+		}
+		return false
+	}
+
+	subService := gss.NewSubscribeService(schema, conf.Server.MaxHandlerCount, canSendToUser)
 
 	ctx := context.Background()
 	wg := &sync.WaitGroup{}
 
-	listener.Start(ctx, wg)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case data := <-subService.GetNotifierChan():
+				go subService.Publish(data)
+			}
+		}
+	}()
 
-	server := gss.NewServer(conf.Server.Port)
+	mux := http.NewServeMux()
+	mux.Handle("/subscription", gss.NewSubscriptionHandler(subService, AuthenticateCallback(conf.Auth.SecretKey)))
+	mux.Handle("/notify", gss.NewNotifyHandler(subService.GetNotifierChan()))
 
-	server.RegisterHandle("/subscription", graphqlws.NewHandler(graphqlws.HandlerConfig{
-		SubscriptionManager: listener,
-		Authenticate:        AuthenticateCallback(conf.Auth.SecretKey),
-	}))
-
-	server.RegisterHandle("/notify", gss.NewNotifyHandler(listener.GetNotifierChan()))
-
-	server.Start(ctx, wg)
+	server := &http.Server{
+		Addr:    ":" + strconv.Itoa(int(conf.Server.Port)),
+		Handler: mux,
+	}
+	startServer(server, ctx, wg)
 
 	wg.Wait()
 }
@@ -143,7 +141,7 @@ func NewConf(path string) (*Conf, error) {
 //
 
 //
-// <!-- Resolver section start
+// <!-- Schema section start
 //
 
 type SampleComment struct {
@@ -151,6 +149,64 @@ type SampleComment struct {
 	content string `json:"content"`
 }
 
+func getSchema(resolve func(p graphql.ResolveParams) (interface{}, error)) (*graphql.Schema, error) {
+	schema, err := graphql.NewSchema(graphql.SchemaConfig{
+		Subscription: graphql.NewObject(
+			graphql.ObjectConfig{
+				Name: "RootSubscription",
+				Fields: graphql.Fields{
+					"newComment": &graphql.Field{
+						Type: graphql.NewObject(graphql.ObjectConfig{
+							Name: "Comment",
+							Fields: graphql.Fields{
+								"id":      &graphql.Field{Type: graphql.NewNonNull(graphql.ID)},
+								"content": &graphql.Field{Type: graphql.NewNonNull(graphql.String)},
+							},
+						}),
+						Args: graphql.FieldConfigArgument{
+							"roomId": &graphql.ArgumentConfig{Type: graphql.NewNonNull(graphql.ID)},
+						},
+						Resolve: resolve,
+					},
+				},
+			},
+		),
+	})
+	return &schema, err
+}
+
 //
-// Resolver section end -->
+// Schema section end -->
+//
+
+//
+// <!-- Server section start
+//
+
+func startServer(srv *http.Server, ctx context.Context, wg *sync.WaitGroup) {
+	log.Println("Starting subscription server on " + srv.Addr)
+
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
+			log.Fatal(err)
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-ctx.Done():
+				if err := srv.Shutdown(ctx); err != nil {
+					log.Fatal(err)
+				}
+				return
+			}
+		}
+	}()
+}
+
+//
+// Server section end -->
 //
