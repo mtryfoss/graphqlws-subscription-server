@@ -9,9 +9,6 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-
-	"github.com/functionalfoundry/graphqlws"
-	"github.com/graphql-go/graphql"
 )
 
 func notifyRequestTest(method, url, content, contentType string) (int, []byte) {
@@ -39,9 +36,8 @@ type notifyTestCase struct {
 
 func TestNotificationHandler(t *testing.T) {
 	mux := http.NewServeMux()
-	schema, _ := graphql.NewSchema(graphql.SchemaConfig{})
-	subService := NewSubscribeService(&schema, 10, func(c *graphqlws.Connection, d *RequestData) bool { return true })
-	mux.Handle("/notify", subService.NewNotifyHandler())
+	ch := make(chan *RequestData, 10)
+	mux.Handle("/notify", NewNotifyHandler(ch))
 
 	ts := httptest.NewServer(mux)
 	defer ts.Close()
