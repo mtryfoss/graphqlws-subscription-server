@@ -57,13 +57,10 @@ func TestNewSubscribeService(t *testing.T) {
 			hello
 		}
 	`
-
-	subChan := make(chan *SubscribeEvent, 1)
-	unsubChan := make(chan *UnsubscribeEvent, 1)
-
-	s := NewSubscribeService(&schema, 10, subChan, unsubChan)
-	s.SubscribeFilter()
-	s.SubscribeCalculator()
+	f := func(conn *graphqlws.Connection, reqData *RequestData) bool {
+		return true
+	}
+	s := NewSubscribeService(&schema, 10, f)
 	s.GetNotifierChan()
 
 	conn1 := &connForTest{
