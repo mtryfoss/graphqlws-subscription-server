@@ -49,10 +49,12 @@ func main() {
 		return false
 	}
 
-	subService := gss.NewSubscribeService(schema, conf.Server.MaxHandlerCount, canSendToUser)
+	subService := gss.NewSubscribeService(schema, canSendToUser)
 
 	ctx := context.Background()
 	wg := &sync.WaitGroup{}
+
+	notifyChan := make(chan *gss.RequestData, conf.Server.MaxHandlerCount)
 
 	wg.Add(1)
 	go func() {
@@ -61,15 +63,15 @@ func main() {
 			select {
 			case <-ctx.Done():
 				return
-			case data := <-subService.GetNotifierChan():
+			case data := <-notifyChan:
 				go subService.Publish(data)
 			}
 		}
 	}()
 
 	mux := http.NewServeMux()
-	mux.Handle("/subscription", gss.NewSubscriptionHandler(subService, AuthenticateCallback(conf.Auth.SecretKey)))
-	mux.Handle("/notify", gss.NewNotifyHandler(subService.GetNotifierChan()))
+	mux.Handle("/subscription", subService.NewSubscriptionHandler(AuthenticateCallback(conf.Auth.SecretKey)))
+	mux.Handle("/notify", gss.NewNotifyHandler(notifyChan))
 
 	server := &http.Server{
 		Addr:    ":" + strconv.Itoa(int(conf.Server.Port)),
