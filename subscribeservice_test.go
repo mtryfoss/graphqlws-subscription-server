@@ -143,19 +143,19 @@ func TestSubscribeServicePublish(t *testing.T) {
 
 	// Query
 	query := `
-		subscription mySubscribe($commentId: ID!) {
-			newComment(id: $commentId) {
-				id content
-			}
-			notification {
-				content
-			}
-		}
-	`
+subscription mySubscribe($commentId: ID!) {
+	newComment(id: $commentId) {
+		id content
+	}
+	notification {
+		content
+	}
+}
+`
 
 	for _, user := range []*testUser{user1, user2, user3, user4, user5} {
 		sub := &graphqlws.Subscription{
-			ID:    user.ID + "-sub",
+			ID:    user.ID + "-sub-" + user.JoinedChannel,
 			Query: query,
 			Variables: map[string]interface{}{
 				"commentId": user.JoinedChannel,
@@ -176,7 +176,7 @@ func TestSubscribeServicePublish(t *testing.T) {
 	}
 
 	subService.Publish(&RequestData{
-		Channel: "foo",
+		Channel: "newComment:foo",
 		Payload: testSampleComment{ID: "id1", Content: "TestSend1"},
 	})
 	for _, user := range []*testUser{user1, user4, user5} {
