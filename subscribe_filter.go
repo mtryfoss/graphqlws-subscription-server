@@ -1,8 +1,8 @@
 package gss
 
 import (
-	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/functionalfoundry/graphqlws"
@@ -55,23 +55,36 @@ func selectionSetsForOperationDefinitions(
 	return sets
 }
 
+func ifToStr(d interface{}) string {
+	if v, ok := d.(string); ok {
+		return v
+	}
+	if v, ok := d.(int); ok {
+		return strconv.Itoa(v)
+	}
+	return ""
+}
+
 func nameForSelectionSet(variables map[string]interface{}, set *ast.SelectionSet) (string, bool) {
 	if len(set.Selections) >= 1 {
 		if field, ok := set.Selections[0].(*ast.Field); ok {
 			args := []astArgs{}
-			fmt.Printf("%#v\n", field)
 			for _, arg := range field.Arguments {
 				val := arg.Value
+				var kk string
+				var vv interface{}
 				if val.GetKind() == "Variable" {
 					valName := val.GetValue().(*ast.Name)
-					args = append(args, astArgs{
-						Key: valName.Value,
-						Val: variables[valName.Value].(string),
-					})
+					kk = valName.Value
+					vv = variables[valName.Value]
 				} else {
+					kk = arg.Name.Value
+					vv = arg.Value.GetValue()
+				}
+				if v := ifToStr(vv); v != "" {
 					args = append(args, astArgs{
-						Key: arg.Name.Value,
-						Val: arg.Value.GetValue().(string),
+						Key: kk,
+						Val: v,
 					})
 				}
 			}
