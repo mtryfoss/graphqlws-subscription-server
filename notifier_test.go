@@ -94,7 +94,7 @@ func TestNotificationHandler(t *testing.T) {
 		notifyTestCase{
 			Label:           "success",
 			Method:          "POST",
-			Body:            `{"channel":"foo","users":["hoge","fuga"],"payload":{"aaa":"iii","uu":{"ee":"oo"}}}`,
+			Body:            `{"channel":"foo","users":["hoge","fuga"],"field":"foo","payload":{"aaa":"iii","uu":{"ee":"oo"}}}`,
 			ContentType:     "application/json",
 			StatusCode:      http.StatusOK,
 			ResponseSuccess: true,

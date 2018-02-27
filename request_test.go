@@ -24,7 +24,15 @@ func TestValidation(t *testing.T) {
 
 	r.Payload = "foo"
 	err = r.Validate()
-	if err != nil {
+	if err == nil {
+		t.Error("error should exists")
+	}
+	if err.Error() != "require field" {
+		t.Error("unexpected error message")
+	}
+
+	r.Field = "hoge"
+	if err == nil {
 		t.Error("error should not exists")
 	}
 }
@@ -51,7 +59,7 @@ func TestReadFromBytes(t *testing.T) {
 		t.Error("unexpected error message")
 	}
 
-	d, err = NewRequestDataFromBytes([]byte(`{"users":["hoge","fuga"],"channel":"foo","payload":"bar"}`))
+	d, err = NewRequestDataFromBytes([]byte(`{"users":["hoge","fuga"],"channel":"foo","field":"hey","payload":"bar"}`))
 	if d == nil {
 		t.Error("data should exists")
 	}
@@ -69,5 +77,8 @@ func TestReadFromBytes(t *testing.T) {
 	}
 	if d.Payload.(string) != "bar" {
 		t.Error("payload data is wrong")
+	}
+	if d.Field != "hey" {
+		t.Error("field data is wrong")
 	}
 }
