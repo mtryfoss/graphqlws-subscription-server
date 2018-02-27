@@ -112,6 +112,10 @@ type testSampleComment struct {
 	Content string `json:"content"`
 }
 
+type testNotification struct {
+	Content string `json:"content"`
+}
+
 type testTmpleView struct {
 	io.Writer
 	Captured []byte
@@ -177,12 +181,21 @@ subscription mySubscribe($commentId: ID!) {
 
 	subService.Publish(&RequestData{
 		Channel: "newComment:foo",
+		Field:   "newComment",
 		Payload: testSampleComment{ID: "id1", Content: "TestSend1"},
 	})
 	for _, user := range []*testUser{user1, user4, user5} {
 		if len(user.Payloads) != 1 {
 			t.Error("user.Payloads count should be 1")
 		}
+		d := user.Payloads[0].Data.(map[string]interface{})
+		if d["newComment"] == nil {
+			t.Error("newComment should exists")
+		}
+		if _, exists := d["notification"]; exists {
+			t.Error("notification shoud not exists")
+		}
+
 	}
 	for _, user := range []*testUser{user2, user3} {
 		if len(user.Payloads) != 0 {
@@ -191,6 +204,19 @@ subscription mySubscribe($commentId: ID!) {
 	}
 
 	clearPayloads()
+
+	subService.Publish(&RequestData{
+		Channel: "notification",
+		Field:   "notification",
+		Payload: testNotification{Content: "hogefuga"},
+	})
+
+	for _, user := range []*testUser{user1, user2, user3, user4, user5} {
+		if len(user.Payloads) != 1 {
+			t.Error("user.Payloads count should be 1")
+		}
+	}
+
 }
 
 func buildSchema() *graphql.Schema {
@@ -222,7 +248,7 @@ func buildSchema() *graphql.Schema {
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					return struct{}{}, nil
+					return p.Context.Value(GraphQLContextKey("newComment")), nil
 				},
 			},
 			"notification": &graphql.Field{
@@ -233,7 +259,7 @@ func buildSchema() *graphql.Schema {
 					},
 				}),
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					return struct{}{}, nil
+					return p.Context.Value(GraphQLContextKey("notification")), nil
 				},
 			},
 		},
