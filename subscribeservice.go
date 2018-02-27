@@ -86,14 +86,3 @@ func (s *SubscribeService) NewSubscriptionHandler(authCallback graphqlws.Authent
 		Authenticate:        authCallback,
 	})
 }
-
-func (s *SubscribeService) NewSubscriptionHandler(authCallback graphqlws.AuthenticateFunc) http.Handler {
-	return graphqlws.NewHandler(graphqlws.HandlerConfig{
-		SubscriptionManager: s,
-		Authenticate:        authCallback,
-	})
-}
-
-func (s *SubscribeService) NewNotifyHandler() http.Handler {
-	return &NotificationHandler{notifyChan: s.notifyChan}
-}
