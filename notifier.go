@@ -60,3 +60,7 @@ func (h *NotificationHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 	h.notifyChan <- data
 	w.Write(successResponse())
 }
+
+func NewNotifyHandler(ch chan *RequestData) http.Handler {
+	return &NotificationHandler{notifyChan: ch}
+}
