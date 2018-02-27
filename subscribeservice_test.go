@@ -1,6 +1,7 @@
 package gss
 
 import (
+	"io"
 	"testing"
 
 	"github.com/functionalfoundry/graphqlws"
@@ -37,19 +38,7 @@ func TestNewSubscribeService(t *testing.T) {
 	user := map[string]string{}
 	user["foo"] = "world"
 
-	// Schema (via https://github.com/graphql-go/graphql )
-	fields := graphql.Fields{
-		"hello": &graphql.Field{
-			Type: graphql.String,
-			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-				v, _ := p.Context.Value(GraphQLContextKey("user")).(map[string]string)["foo"]
-				return v, nil
-			},
-		},
-	}
-	rootQuery := graphql.ObjectConfig{Name: "RootQuery", Fields: fields}
-	schemaConfig := graphql.SchemaConfig{Query: graphql.NewObject(rootQuery)}
-	schema, _ := graphql.NewSchema(schemaConfig)
+	schema := buildSchema()
 
 	// Query
 	query := `
@@ -60,8 +49,7 @@ func TestNewSubscribeService(t *testing.T) {
 	f := func(conn *graphqlws.Connection, reqData *RequestData) bool {
 		return true
 	}
-	s := NewSubscribeService(&schema, 10, f)
-	s.GetNotifierChan()
+	s := NewSubscribeService(schema, f)
 
 	conn1 := &connForTest{
 		id:   "hoge",
@@ -105,5 +93,155 @@ func TestNewSubscribeService(t *testing.T) {
 	s.NewSubscriptionHandler(func(tokenstring string) (interface{}, error) {
 		return user, nil
 	})
-	s.NewNotifyHandler()
+}
+
+type testUser struct {
+	ID            string
+	JoinedChannel string
+	Payloads      []*graphqlws.DataMessagePayload
+}
+
+func (u *testUser) GetSendData() func(*graphqlws.DataMessagePayload) {
+	return func(d *graphqlws.DataMessagePayload) {
+		u.Payloads = append(u.Payloads, d)
+	}
+}
+
+type testSampleComment struct {
+	ID      string `json:"id"`
+	Content string `json:"content"`
+}
+
+type testTmpleView struct {
+	io.Writer
+	Captured []byte
+}
+
+func (v *testTmpleView) Write(p []byte) (int, error) {
+	v.Captured = append(v.Captured, p...)
+	return len(p), nil
+}
+
+func TestSubscribeServicePublish(t *testing.T) {
+	user1 := &testUser{ID: "test1", JoinedChannel: "foo"}
+	user2 := &testUser{ID: "test2", JoinedChannel: "bar"}
+	user3 := &testUser{ID: "test3", JoinedChannel: "baz"}
+	user4 := &testUser{ID: "test4", JoinedChannel: "foo"}
+	user5 := &testUser{ID: "test5", JoinedChannel: "foo"}
+
+	schema := buildSchema()
+
+	subService := NewSubscribeService(schema, func(conn *graphqlws.Connection, reqData *RequestData) bool {
+		user := (*conn).User().(testUser)
+		for _, userID := range reqData.Users {
+			if user.ID == userID {
+				return true
+			}
+		}
+		return false
+	})
+
+	// Query
+	query := `
+		subscription mySubscribe($commentId: ID!) {
+			newComment(id: $commentId) {
+				id content
+			}
+			notification {
+				content
+			}
+		}
+	`
+
+	for _, user := range []*testUser{user1, user2, user3, user4, user5} {
+		sub := &graphqlws.Subscription{
+			ID:    user.ID + "-sub",
+			Query: query,
+			Variables: map[string]interface{}{
+				"commentId": user.JoinedChannel,
+			},
+			Connection: &connForTest{
+				id:   user.ID + "-conn",
+				user: user,
+			},
+			SendData: user.GetSendData(),
+		}
+		subService.AddSubscription(sub.Connection, sub)
+	}
+
+	clearPayloads := func() {
+		for _, user := range []*testUser{user1, user2, user3, user4, user5} {
+			user.Payloads = []*graphqlws.DataMessagePayload{}
+		}
+	}
+
+	subService.Publish(&RequestData{
+		Channel: "foo",
+		Payload: testSampleComment{ID: "id1", Content: "TestSend1"},
+	})
+	for _, user := range []*testUser{user1, user4, user5} {
+		if len(user.Payloads) != 1 {
+			t.Error("user.Payloads count should be 1")
+		}
+	}
+	for _, user := range []*testUser{user2, user3} {
+		if len(user.Payloads) != 0 {
+			t.Error("user.Payloads count should be 0")
+		}
+	}
+
+	clearPayloads()
+}
+
+func buildSchema() *graphql.Schema {
+	rootQuery := graphql.ObjectConfig{
+		Name: "RootQuery",
+		Fields: graphql.Fields{
+			"hello": &graphql.Field{
+				Type: graphql.String,
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					return "world", nil
+				},
+			},
+		},
+	}
+	rootSubscription := graphql.ObjectConfig{
+		Name: "RootSubscription",
+		Fields: graphql.Fields{
+			"newComment": &graphql.Field{
+				Type: graphql.NewObject(graphql.ObjectConfig{
+					Name: "Comment",
+					Fields: graphql.Fields{
+						"id":      &graphql.Field{Type: graphql.NewNonNull(graphql.ID)},
+						"content": &graphql.Field{Type: graphql.NewNonNull(graphql.String)},
+					},
+				}),
+				Args: graphql.FieldConfigArgument{
+					"id": &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.ID),
+					},
+				},
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					return struct{}{}, nil
+				},
+			},
+			"notification": &graphql.Field{
+				Type: graphql.NewObject(graphql.ObjectConfig{
+					Name: "Notification",
+					Fields: graphql.Fields{
+						"content": &graphql.Field{Type: graphql.NewNonNull(graphql.String)},
+					},
+				}),
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					return struct{}{}, nil
+				},
+			},
+		},
+	}
+	schemaConfig := graphql.SchemaConfig{
+		Query:        graphql.NewObject(rootQuery),
+		Subscription: graphql.NewObject(rootSubscription),
+	}
+	schema, _ := graphql.NewSchema(schemaConfig)
+	return &schema
 }

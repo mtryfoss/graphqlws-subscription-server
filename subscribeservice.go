@@ -20,12 +20,11 @@ type SubscribeService struct {
 	canSendToUser CanSendToUserFunc
 }
 
-func NewSubscribeService(schema *graphql.Schema, handleCount uint, c CanSendToUserFunc) *SubscribeService {
+func NewSubscribeService(schema *graphql.Schema, c CanSendToUserFunc) *SubscribeService {
 	return &SubscribeService{
 		Schema:        schema,
 		Pool:          graphqlws.NewSubscriptionManager(schema),
 		Filter:        NewSubscribeFilter(),
-		notifyChan:    make(chan *RequestData, handleCount),
 		canSendToUser: c,
 	}
 }
@@ -79,10 +78,6 @@ func (s *SubscribeService) Publish(reqData *RequestData) {
 			}
 		}
 	}
-}
-
-func (s *SubscribeService) GetNotifierChan() chan *RequestData {
-	return s.notifyChan
 }
 
 func (s *SubscribeService) NewSubscriptionHandler(authCallback graphqlws.AuthenticateFunc) http.Handler {

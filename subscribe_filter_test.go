@@ -14,8 +14,8 @@ func TestChannelManagerSubscribeAndUnsubscribe(t *testing.T) {
 
 	// Query
 	query := `
-		subscription {
-			hello(id: 1, aaa: "fuu") {
+		subscription mySubscribe($id: ID!, $aaa: String!) {
+			hello(id: $id, aaa: $aaa) {
 				foo
 				bar
 			}
@@ -28,9 +28,12 @@ func TestChannelManagerSubscribeAndUnsubscribe(t *testing.T) {
 	}
 
 	sub1 := &graphqlws.Subscription{
-		ID:            "foo",
-		Query:         query,
-		Variables:     map[string]interface{}{},
+		ID:    "foo",
+		Query: query,
+		Variables: map[string]interface{}{
+			"id":  1,
+			"aaa": "fuu",
+		},
 		OperationName: "",
 		Connection:    conn1,
 		SendData:      func(d *graphqlws.DataMessagePayload) {},

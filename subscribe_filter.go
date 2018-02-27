@@ -1,6 +1,7 @@
 package gss
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 
@@ -54,15 +55,25 @@ func selectionSetsForOperationDefinitions(
 	return sets
 }
 
-func nameForSelectionSet(set *ast.SelectionSet) (string, bool) {
+func nameForSelectionSet(variables map[string]interface{}, set *ast.SelectionSet) (string, bool) {
 	if len(set.Selections) >= 1 {
 		if field, ok := set.Selections[0].(*ast.Field); ok {
 			args := []astArgs{}
+			fmt.Printf("%#v\n", field)
 			for _, arg := range field.Arguments {
-				args = append(args, astArgs{
-					Key: arg.Name.Value,
-					Val: arg.Value.GetValue().(string),
-				})
+				val := arg.Value
+				if val.GetKind() == "Variable" {
+					valName := val.GetValue().(*ast.Name)
+					args = append(args, astArgs{
+						Key: valName.Value,
+						Val: variables[valName.Value].(string),
+					})
+				} else {
+					args = append(args, astArgs{
+						Key: arg.Name.Value,
+						Val: arg.Value.GetValue().(string),
+					})
+				}
 			}
 			sort.Slice(args, func(i, j int) bool {
 				return args[i].Key <= args[j].Key
@@ -77,10 +88,10 @@ func nameForSelectionSet(set *ast.SelectionSet) (string, bool) {
 	return "", false
 }
 
-func namesForSelectionSets(sets []*ast.SelectionSet) []string {
+func namesForSelectionSets(variables map[string]interface{}, sets []*ast.SelectionSet) []string {
 	names := []string{}
 	for _, set := range sets {
-		if name, ok := nameForSelectionSet(set); ok {
+		if name, ok := nameForSelectionSet(variables, set); ok {
 			names = append(names, name)
 		}
 	}
@@ -90,6 +101,6 @@ func namesForSelectionSets(sets []*ast.SelectionSet) []string {
 func (f *subscribeFilter) ReplaceFieldsFromDocument(subscription *graphqlws.Subscription) {
 	defs := operationDefinitionsWithOperation(subscription.Document, "subscription")
 	sets := selectionSetsForOperationDefinitions(defs)
-	fields := namesForSelectionSets(sets)
+	fields := namesForSelectionSets(subscription.Variables, sets)
 	subscription.Fields = fields
 }
