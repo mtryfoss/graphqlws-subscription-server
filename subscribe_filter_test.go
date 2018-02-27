@@ -66,6 +66,9 @@ func TestSubscriptionQueryComplex(t *testing.T) {
 				foo
 				bar
 			}
+			user(id: $id) {
+				name
+			}
 		}
 	`
 
@@ -95,10 +98,13 @@ func TestSubscriptionQueryComplex(t *testing.T) {
 	f := NewSubscribeFilter()
 	f.ReplaceFieldsFromDocument(sub1)
 
-	if len(sub1.Fields) != 1 {
-		t.Error("subscription.Fields count should be 1")
+	if len(sub1.Fields) != 2 {
+		t.Error("subscription.Fields count should be 2")
 	}
 	if sub1.Fields[0] != "hello:fuu:1" {
 		t.Error("subscription.Fields[0] should hello:fuu:1 -> ", sub1.Fields[0])
+	}
+	if sub1.Fields[1] != "user:1" {
+		t.Error("subscription.Fields[1] should user:1 -> ", sub1.Fields[1])
 	}
 }

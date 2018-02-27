@@ -65,50 +65,53 @@ func ifToStr(d interface{}) string {
 	return ""
 }
 
-func nameForSelectionSet(variables map[string]interface{}, set *ast.SelectionSet) (string, bool) {
-	if len(set.Selections) >= 1 {
-		if field, ok := set.Selections[0].(*ast.Field); ok {
-			args := []astArgs{}
-			for _, arg := range field.Arguments {
-				val := arg.Value
-				var kk string
-				var vv interface{}
-				if val.GetKind() == "Variable" {
-					valName := val.GetValue().(*ast.Name)
-					kk = valName.Value
-					vv = variables[valName.Value]
-				} else {
-					kk = arg.Name.Value
-					vv = arg.Value.GetValue()
-				}
-				if v := ifToStr(vv); v != "" {
-					args = append(args, astArgs{
-						Key: kk,
-						Val: v,
-					})
-				}
-			}
-			sort.Slice(args, func(i, j int) bool {
-				return args[i].Key <= args[j].Key
-			})
-			joinedArgs := []string{field.Name.Value}
-			for _, a := range args {
-				joinedArgs = append(joinedArgs, a.Val)
-			}
-			return strings.Join(joinedArgs, ":"), true
+func nameForSelectionSet(variables map[string]interface{}, set *ast.SelectionSet) ([]string, bool) {
+	fieldStrs := []string{}
+	for _, fieldIF := range set.Selections {
+		field, ok := fieldIF.(*ast.Field)
+		if !ok {
+			continue
 		}
+		args := []astArgs{}
+		for _, arg := range field.Arguments {
+			val := arg.Value
+			var kk string
+			var vv interface{}
+			if val.GetKind() == "Variable" {
+				valName := val.GetValue().(*ast.Name)
+				kk = valName.Value
+				vv = variables[valName.Value]
+			} else {
+				kk = arg.Name.Value
+				vv = arg.Value.GetValue()
+			}
+			if v := ifToStr(vv); v != "" {
+				args = append(args, astArgs{
+					Key: kk,
+					Val: v,
+				})
+			}
+		}
+		sort.Slice(args, func(i, j int) bool {
+			return args[i].Key <= args[j].Key
+		})
+		joinedArgs := []string{field.Name.Value}
+		for _, a := range args {
+			joinedArgs = append(joinedArgs, a.Val)
+		}
+		fieldStrs = append(fieldStrs, strings.Join(joinedArgs, ":"))
 	}
-	return "", false
+	return fieldStrs, len(fieldStrs) > 0
 }
 
 func namesForSelectionSets(variables map[string]interface{}, sets []*ast.SelectionSet) []string {
-	names := []string{}
+	nameList := []string{}
 	for _, set := range sets {
-		if name, ok := nameForSelectionSet(variables, set); ok {
-			names = append(names, name)
+		if names, ok := nameForSelectionSet(variables, set); ok {
+			nameList = append(nameList, names...)
 		}
 	}
-	return names
+	return nameList
 }
 
 func (f *subscribeFilter) ReplaceFieldsFromDocument(subscription *graphqlws.Subscription) {
