@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"sync"
 
-	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/functionalfoundry/graphqlws"
 	"github.com/graphql-go/graphql"
 	"github.com/graphql-go/handler"
@@ -99,20 +98,16 @@ func main() {
 //
 
 type ConnectedUser struct {
-	jwt.StandardClaims
+	ID string
 }
 
 func (u ConnectedUser) Name() string {
-	return u.Subject
+	return u.ID
 }
 
 func AuthenticateCallback(secretkey string) graphqlws.AuthenticateFunc {
 	return func(tokenstring string) (interface{}, error) {
-		user := ConnectedUser{}
-		_, err := jwt.ParseWithClaims(tokenstring, &user, func(token *jwt.Token) (interface{}, error) {
-			return []byte(secretkey), nil
-		})
-		return user, err
+		return &ConnectedUser{ID: tokenstring}, nil
 	}
 }
 
