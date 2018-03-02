@@ -7,7 +7,6 @@ import (
 
 type RequestData struct {
 	Users   []string    `json:"users"`
-	Field   string      `json:"field"`
 	Channel string      `json:"channel"`
 	Payload interface{} `json:"payload"`
 }
@@ -18,9 +17,6 @@ func (d *RequestData) Validate() error {
 	}
 	if d.Payload == nil {
 		return errors.New("require payload")
-	}
-	if d.Field == "" {
-		return errors.New("require field")
 	}
 	return nil
 }

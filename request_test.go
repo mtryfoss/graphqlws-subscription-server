@@ -30,11 +30,6 @@ func TestValidation(t *testing.T) {
 	if err.Error() != "require field" {
 		t.Error("unexpected error message")
 	}
-
-	r.Field = "hoge"
-	if err == nil {
-		t.Error("error should not exists")
-	}
 }
 
 func TestReadFromBytes(t *testing.T) {
@@ -77,8 +72,5 @@ func TestReadFromBytes(t *testing.T) {
 	}
 	if d.Payload.(string) != "bar" {
 		t.Error("payload data is wrong")
-	}
-	if d.Field != "hey" {
-		t.Error("field data is wrong")
 	}
 }
