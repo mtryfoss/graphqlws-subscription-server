@@ -66,9 +66,6 @@ func TestSubscriptionQueryComplex(t *testing.T) {
 				foo
 				bar
 			}
-			user(id: $id) {
-				name
-			}
 		}
 	`
 

@@ -10,25 +10,28 @@ import (
 	"github.com/graphql-go/graphql/language/kinds"
 )
 
+type SubscriptionIDByConnectionID map[string]string
+type QueryArgsMap map[string]string
+
 type SubscribeFilter interface {
 	RegisterConnectionIDFromDocument(connID string, subID string, doc *ast.Document, variables map[string]interface{})
 	RemoveSubscriptionIDFromConnectionID(connID, subID string)
 	RemoveConnectionIDFromChannels(connID string)
-	GetChannelRegisteredConnectionIDs(channel string) map[string]string
+	GetChannelRegisteredConnectionIDs(channel string) SubscriptionIDByConnectionID
 }
 
 type ChannelSerializer interface {
-	Serialize(field string, args map[string]string) string
+	Serialize(field string, args QueryArgsMap) string
 }
 
-type channelSerializerFunc func(field string, args map[string]string) string
+type channelSerializerFunc func(field string, args QueryArgsMap) string
 
-func (f channelSerializerFunc) Serialize(field string, args map[string]string) string {
+func (f channelSerializerFunc) Serialize(field string, args QueryArgsMap) string {
 	return f(field, args)
 }
 
 func getNewChannelSerializerFunc() channelSerializerFunc {
-	return func(field string, args map[string]string) string {
+	return func(field string, args QueryArgsMap) string {
 		sargs := []string{}
 		for k := range args {
 			sargs = append(sargs, k)
@@ -203,8 +206,8 @@ func (f *subscribeFilter) RemoveSubscriptionIDFromConnectionID(connID, subID str
 	}
 }
 
-func (f *subscribeFilter) GetChannelRegisteredConnectionIDs(channel string) map[string]string {
-	founds := map[string]string{}
+func (f *subscribeFilter) GetChannelRegisteredConnectionIDs(channel string) SubscriptionIDByConnectionID {
+	founds := SubscriptionIDByConnectionID{}
 	if m, ok := f.connectionIDByChannel[channel]; ok {
 		m.Range(func(k, v interface{}) bool {
 			founds[k.(string)] = v.(string)
