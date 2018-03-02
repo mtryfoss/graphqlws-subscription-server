@@ -27,14 +27,7 @@ func main() {
 		log.Fatalln("conf load error")
 	}
 
-	schema, err := getSchema(func(p graphql.ResolveParams) (interface{}, error) {
-		payload := p.Context.Value(gss.GraphQLContextKey("payload"))
-		if payload == nil {
-			return nil, errors.New("payload not found")
-		}
-		comment := payload.(SampleComment)
-		return comment, nil
-	})
+	schema, err := getSchema()
 	if err != nil {
 		log.Fatalln("GraphQL schema is invalid: ", err)
 	}
@@ -153,12 +146,14 @@ func NewConf(path string) (*Conf, error) {
 // <!-- Schema section start
 //
 
-type SampleComment struct {
-	id      string `json:"id"`
-	content string `json:"content"`
-}
-
-func getSchema(resolve func(p graphql.ResolveParams) (interface{}, error)) (*graphql.Schema, error) {
+func getSchema() (*graphql.Schema, error) {
+	resolve := func(p graphql.ResolveParams) (interface{}, error) {
+		payload := p.Context.Value(gss.GraphQLContextKey("payload"))
+		if payload == nil {
+			return nil, errors.New("payload not found")
+		}
+		return payload, nil
+	}
 	schema, err := graphql.NewSchema(graphql.SchemaConfig{
 		Query: graphql.NewObject(
 			graphql.ObjectConfig{
