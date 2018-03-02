@@ -44,6 +44,12 @@
   version = "v0.7.4"
 
 [[projects]]
+  name = "github.com/graphql-go/handler"
+  packages = ["."]
+  revision = "f0393b2c10daeebea900292b8e092e73475399d9"
+  version = "v0.2.1"
+
+[[projects]]
   name = "github.com/mattn/go-colorable"
   packages = ["."]
   revision = "167de6bfdfba052fa6b2d3664c8f5272e23c9072"
@@ -103,6 +109,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "913c62a88145706b4d8fd8998e3c52243d847bb4609a6a6469f5dee7908c6959"
+  inputs-digest = "8a4bddfe8079601779bb7da4d4ba358ce380dfa683f060a632e4926cf06e54a1"
   solver-name = "gps-cdcl"
   solver-version = 1

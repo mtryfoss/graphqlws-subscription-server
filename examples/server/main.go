@@ -12,6 +12,7 @@ import (
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/functionalfoundry/graphqlws"
 	"github.com/graphql-go/graphql"
+	"github.com/graphql-go/handler"
 	toml "github.com/pelletier/go-toml"
 
 	gss "github.com/taiyoh/graphqlws-subscription-server"
@@ -72,7 +73,16 @@ func main() {
 	authCallback := AuthenticateCallback(conf.Auth.SecretKey)
 
 	mux := http.NewServeMux()
-	mux.Handle("/subscription", subService.NewSubscriptionHandler(AuthenticateCallback(conf.Auth.SecretKey)))
+
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "index.html")
+	})
+	mux.Handle("/graphql", handler.New(&handler.Config{
+		Schema:   schema,
+		Pretty:   true,
+		GraphiQL: true,
+	}))
+	mux.Handle("/subscription", subService.NewSubscriptionHandler(authCallback))
 	mux.Handle("/notify", gss.NewNotifyHandler(notifyChan))
 
 	server := &http.Server{
