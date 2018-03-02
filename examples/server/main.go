@@ -107,7 +107,7 @@ func (u ConnectedUser) Name() string {
 
 func AuthenticateCallback(secretkey string) graphqlws.AuthenticateFunc {
 	return func(tokenstring string) (interface{}, error) {
-		return &ConnectedUser{ID: tokenstring}, nil
+		return ConnectedUser{ID: tokenstring}, nil
 	}
 }
 
