@@ -77,7 +77,7 @@
   branch = "master"
   name = "github.com/taiyoh/graphqlws-subscription-server"
   packages = ["."]
-  revision = "e79de2252e77ae0e36d91b3889ee4e0c6051d0c5"
+  revision = "b6a2fa0f9d9c20ed76cfa38f8e9786b96b85a665"
 
 [[projects]]
   name = "github.com/x-cray/logrus-prefixed-formatter"
@@ -89,7 +89,7 @@
   branch = "master"
   name = "golang.org/x/crypto"
   packages = ["ssh/terminal"]
-  revision = "49796115aa4b964c318aad4f3084fdb41e9aa067"
+  revision = "91a49db82a88618983a78a06c1cbd4e00ab749ab"
 
 [[projects]]
   branch = "master"
