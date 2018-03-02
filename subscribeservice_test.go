@@ -181,7 +181,6 @@ subscription mySubscribe($commentId: ID!) {
 
 	subService.Publish(&RequestData{
 		Channel: "newComment:foo",
-		Field:   "newComment",
 		Payload: testSampleComment{ID: "id1", Content: "TestSend1"},
 	})
 	for _, user := range []*testUser{user1, user4, user5} {
@@ -207,7 +206,6 @@ subscription mySubscribe($commentId: ID!) {
 
 	subService.Publish(&RequestData{
 		Channel: "notification",
-		Field:   "notification",
 		Payload: testNotification{Content: "hogefuga"},
 	})
 
