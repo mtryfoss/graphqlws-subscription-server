@@ -210,8 +210,8 @@ subscription mySubscribe($commentId: ID!) {
 	})
 
 	for _, user := range []*testUser{user1, user2, user3, user4, user5} {
-		if len(user.Payloads) != 1 {
-			t.Error("user.Payloads count should be 1")
+		if len(user.Payloads) != 0 {
+			t.Error("user.Payloads count should be 0. no one received")
 		}
 	}
 
@@ -246,7 +246,7 @@ func buildSchema() *graphql.Schema {
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					return p.Context.Value(GraphQLContextKey("newComment")), nil
+					return p.Context.Value(GraphQLContextKey("payload")), nil
 				},
 			},
 			"notification": &graphql.Field{
@@ -257,7 +257,7 @@ func buildSchema() *graphql.Schema {
 					},
 				}),
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					return p.Context.Value(GraphQLContextKey("notification")), nil
+					return p.Context.Value(GraphQLContextKey("payload")), nil
 				},
 			},
 		},
