@@ -37,7 +37,7 @@ func main() {
 		return comment, nil
 	})
 	if err != nil {
-		log.Fatalln("GraphQL schema is invalid")
+		log.Fatalln("GraphQL schema is invalid: ", err)
 	}
 
 	canSendToUser := func(conn *graphqlws.Connection, reqData *gss.RequestData) bool {
@@ -165,6 +165,19 @@ type SampleComment struct {
 
 func getSchema(resolve func(p graphql.ResolveParams) (interface{}, error)) (*graphql.Schema, error) {
 	schema, err := graphql.NewSchema(graphql.SchemaConfig{
+		Query: graphql.NewObject(
+			graphql.ObjectConfig{
+				Name: "RootQuery",
+				Fields: graphql.Fields{
+					"hello": &graphql.Field{
+						Type: graphql.NewNonNull(graphql.String),
+						Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+							return "world", nil
+						},
+					},
+				},
+			},
+		),
 		Subscription: graphql.NewObject(
 			graphql.ObjectConfig{
 				Name: "RootSubscription",
