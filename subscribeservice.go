@@ -16,7 +16,6 @@ type SubscribeService struct {
 	Schema        *graphql.Schema
 	Pool          graphqlws.SubscriptionManager
 	Filter        SubscribeFilter
-	notifyChan    chan *RequestData
 	canSendToUser CanSendToUserFunc
 }
 
