@@ -24,11 +24,8 @@ func TestValidation(t *testing.T) {
 
 	r.Payload = "foo"
 	err = r.Validate()
-	if err == nil {
-		t.Error("error should exists")
-	}
-	if err.Error() != "require field" {
-		t.Error("unexpected error message")
+	if err != nil {
+		t.Error("error should not exists")
 	}
 }
 
