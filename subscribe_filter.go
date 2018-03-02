@@ -4,21 +4,59 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
-	"github.com/functionalfoundry/graphqlws"
 	"github.com/graphql-go/graphql/language/ast"
+	"github.com/graphql-go/graphql/language/kinds"
 )
 
 type SubscribeFilter interface {
-	ReplaceFieldsFromDocument(subscription *graphqlws.Subscription)
+	RegisterConnectionIDFromDocument(connID string, subID string, doc *ast.Document, variables map[string]interface{})
+	RemoveSubscriptionIDFromConnectionID(connID, subID string)
+	RemoveConnectionIDFromChannels(connID string)
+	GetChannelRegisteredConnectionIDs(channel string) map[string]string
+}
+
+type ChannelSerializer interface {
+	Serialize(field string, args map[string]string) string
+}
+
+type channelSerializerFunc func(field string, args map[string]string) string
+
+func (f channelSerializerFunc) Serialize(field string, args map[string]string) string {
+	return f(field, args)
+}
+
+func getNewChannelSerializerFunc() channelSerializerFunc {
+	return func(field string, args map[string]string) string {
+		sargs := []string{}
+		for k := range args {
+			sargs = append(sargs, k)
+		}
+		sort.Slice(sargs, func(i, j int) bool {
+			return sargs[i] <= sargs[j]
+		})
+		strList := []string{field}
+		for i := range sargs {
+			strList = append(strList, args[sargs[i]])
+		}
+		return strings.Join(strList, ":")
+	}
 }
 
 type subscribeFilter struct {
 	SubscribeFilter
+	Serializer            ChannelSerializer
+	connectionIdByChannel map[string]*sync.Map
+	channelByConnectionId map[string]*sync.Map
 }
 
 func NewSubscribeFilter() *subscribeFilter {
-	return &subscribeFilter{}
+	return &subscribeFilter{
+		Serializer:            getNewChannelSerializerFunc(),
+		connectionIdByChannel: map[string]*sync.Map{},
+		channelByConnectionId: map[string]*sync.Map{},
+	}
 }
 
 type astArgs struct {
@@ -65,58 +103,118 @@ func ifToStr(d interface{}) string {
 	return ""
 }
 
-func nameForSelectionSet(variables map[string]interface{}, set *ast.SelectionSet) ([]string, bool) {
-	fieldStrs := []string{}
-	for _, fieldIF := range set.Selections {
-		field, ok := fieldIF.(*ast.Field)
+func getArgKeyValueFromAstValue(variables map[string]interface{}, arg *ast.Argument) (string, string, bool) {
+	var k, v string
+	val := arg.Value
+	if val.GetKind() == kinds.Variable {
+		n := val.GetValue().(*ast.Name)
+		k = n.Value
+		vv, ok := variables[n.Value]
 		if !ok {
-			continue
+			return "", "", false
 		}
-		args := []astArgs{}
-		for _, arg := range field.Arguments {
-			val := arg.Value
-			var kk string
-			var vv interface{}
-			if val.GetKind() == "Variable" {
-				valName := val.GetValue().(*ast.Name)
-				kk = valName.Value
-				vv = variables[valName.Value]
-			} else {
-				kk = arg.Name.Value
-				vv = arg.Value.GetValue()
-			}
-			if v := ifToStr(vv); v != "" {
-				args = append(args, astArgs{
-					Key: kk,
-					Val: v,
-				})
-			}
-		}
-		sort.Slice(args, func(i, j int) bool {
-			return args[i].Key <= args[j].Key
-		})
-		joinedArgs := []string{field.Name.Value}
-		for _, a := range args {
-			joinedArgs = append(joinedArgs, a.Val)
-		}
-		fieldStrs = append(fieldStrs, strings.Join(joinedArgs, ":"))
+		v = ifToStr(vv)
+	} else {
+		k = arg.Name.Value
+		vv := arg.Value.GetValue().(string)
+		v = ifToStr(vv)
 	}
-	return fieldStrs, len(fieldStrs) > 0
+	if v != "" {
+		return k, v, true
+	}
+	return "", "", false
 }
 
-func namesForSelectionSets(variables map[string]interface{}, sets []*ast.SelectionSet) []string {
-	nameList := []string{}
+func channelsForSelectionSets(variables map[string]interface{}, sets []*ast.SelectionSet) map[string]map[string]string {
+	nameList := map[string]map[string]string{}
 	for _, set := range sets {
-		if names, ok := nameForSelectionSet(variables, set); ok {
-			nameList = append(nameList, names...)
+		if len(set.Selections) < 1 {
+			continue
+		}
+		field := set.Selections[0].(*ast.Field)
+		args := map[string]string{}
+		for _, arg := range field.Arguments {
+			if k, v, ok := getArgKeyValueFromAstValue(variables, arg); ok {
+				args[k] = v
+			}
+		}
+		if len(args) > 0 {
+			nameList[field.Name.Value] = args
 		}
 	}
 	return nameList
 }
 
-func (f *subscribeFilter) ReplaceFieldsFromDocument(subscription *graphqlws.Subscription) {
-	defs := operationDefinitionsWithOperation(subscription.Document, "subscription")
+func (f *subscribeFilter) RegisterConnectionIDFromDocument(connID string, subID string, doc *ast.Document, variables map[string]interface{}) {
+	defs := operationDefinitionsWithOperation(doc, "subscription")
 	sets := selectionSetsForOperationDefinitions(defs)
-	fields := namesForSelectionSets(subscription.Variables, sets)
-	subscription.Fields = fields
+	for field, args := range channelsForSelectionSets(variables, sets) {
+		ch := f.Serializer.Serialize(field, args)
+		if m, ok := f.connectionIdByChannel[ch]; ok {
+			m.Store(connID, subID)
+		} else {
+			m := &sync.Map{}
+			m.Store(connID, subID)
+			f.connectionIdByChannel[ch] = m
+		}
+		if m, ok := f.channelByConnectionId[connID]; ok {
+			m.Store(ch, subID)
+		} else {
+			m := &sync.Map{}
+			m.Store(ch, subID)
+			f.channelByConnectionId[connID] = m
+		}
+	}
+}
+
+func (f *subscribeFilter) RemoveConnectionIDFromChannels(connID string) {
+	channels := []string{}
+	if m1, ok := f.channelByConnectionId[connID]; ok {
+		m1.Range(func(k, v interface{}) bool {
+			channels = append(channels, k.(string))
+			return true
+		})
+		delete(f.channelByConnectionId, connID)
+	}
+	for _, ch := range channels {
+		if m, ok := f.connectionIdByChannel[ch]; ok {
+			m.Delete(connID)
+		}
+	}
+}
+
+func (f *subscribeFilter) RemoveSubscriptionIDFromConnectionID(connID, subID string) {
+	var ch string
+	m1, ok := f.channelByConnectionId[connID]
+	if !ok {
+		return
+	}
+	m1.Range(func(k, v interface{}) bool {
+		if v.(string) == subID {
+			ch = k.(string)
+		}
+		return ch == ""
+	})
+	if ch == "" {
+		return
+	}
+	m1.Delete(ch)
+	m2, ok := f.connectionIdByChannel[ch]
+	if !ok {
+		return
+	}
+	if s, ok := m2.Load(connID); ok && s.(string) == subID {
+		m2.Delete(connID)
+	}
+}
+
+func (f *subscribeFilter) GetChannelRegisteredConnectionIDs(channel string) map[string]string {
+	founds := map[string]string{}
+	if m, ok := f.connectionIdByChannel[channel]; ok {
+		m.Range(func(k, v interface{}) bool {
+			founds[k.(string)] = v.(string)
+			return true
+		})
+	}
+	return founds
 }
