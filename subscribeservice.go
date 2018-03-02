@@ -56,7 +56,7 @@ func (s *SubscribeService) Subscriptions() graphqlws.Subscriptions {
 
 func (s *SubscribeService) Publish(reqData *RequestData) {
 	ctx := context.Background()
-	ctx = context.WithValue(ctx, GraphQLContextKey(reqData.Field), reqData.Payload)
+	ctx = context.WithValue(ctx, GraphQLContextKey("payload"), reqData.Payload)
 	connIDsMap := s.Filter.GetChannelRegisteredConnectionIDs(reqData.Channel)
 	for conn, subsByID := range s.Pool.Subscriptions() {
 		if len(reqData.Users) > 0 && !s.canSendToUser(&conn, reqData) {
@@ -77,18 +77,13 @@ func (s *SubscribeService) Publish(reqData *RequestData) {
 				OperationName:  sub.OperationName,
 				Context:        ctx,
 			})
-			d := &graphqlws.DataMessagePayload{}
 			rest := map[string]interface{}{}
 			for k, v := range res.Data.(map[string]interface{}) {
-				if k == reqData.Field {
+				if k == sub.Fields[0] {
 					rest[k] = v
 				}
 			}
-			d.Data = rest
-			if res.HasErrors() {
-				d.Errors = graphqlws.ErrorsFromGraphQLErrors(res.Errors)
-			}
-			sub.SendData(d)
+			sub.SendData(&graphqlws.DataMessagePayload{Data: rest})
 		}
 	}
 }

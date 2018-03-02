@@ -47,21 +47,16 @@ func getNewChannelSerializerFunc() channelSerializerFunc {
 type subscribeFilter struct {
 	SubscribeFilter
 	Serializer            ChannelSerializer
-	connectionIdByChannel map[string]*sync.Map
-	channelByConnectionId map[string]*sync.Map
+	connectionIDByChannel map[string]*sync.Map
+	channelByConnectionID map[string]*sync.Map
 }
 
 func NewSubscribeFilter() *subscribeFilter {
 	return &subscribeFilter{
 		Serializer:            getNewChannelSerializerFunc(),
-		connectionIdByChannel: map[string]*sync.Map{},
-		channelByConnectionId: map[string]*sync.Map{},
+		connectionIDByChannel: map[string]*sync.Map{},
+		channelByConnectionID: map[string]*sync.Map{},
 	}
-}
-
-type astArgs struct {
-	Key string
-	Val string
 }
 
 func operationDefinitionsWithOperation(
@@ -150,34 +145,34 @@ func (f *subscribeFilter) RegisterConnectionIDFromDocument(connID string, subID 
 	sets := selectionSetsForOperationDefinitions(defs)
 	for field, args := range channelsForSelectionSets(variables, sets) {
 		ch := f.Serializer.Serialize(field, args)
-		if m, ok := f.connectionIdByChannel[ch]; ok {
+		if m, ok := f.connectionIDByChannel[ch]; ok {
 			m.Store(connID, subID)
 		} else {
 			m := &sync.Map{}
 			m.Store(connID, subID)
-			f.connectionIdByChannel[ch] = m
+			f.connectionIDByChannel[ch] = m
 		}
-		if m, ok := f.channelByConnectionId[connID]; ok {
+		if m, ok := f.channelByConnectionID[connID]; ok {
 			m.Store(ch, subID)
 		} else {
 			m := &sync.Map{}
 			m.Store(ch, subID)
-			f.channelByConnectionId[connID] = m
+			f.channelByConnectionID[connID] = m
 		}
 	}
 }
 
 func (f *subscribeFilter) RemoveConnectionIDFromChannels(connID string) {
 	channels := []string{}
-	if m1, ok := f.channelByConnectionId[connID]; ok {
+	if m1, ok := f.channelByConnectionID[connID]; ok {
 		m1.Range(func(k, v interface{}) bool {
 			channels = append(channels, k.(string))
 			return true
 		})
-		delete(f.channelByConnectionId, connID)
+		delete(f.channelByConnectionID, connID)
 	}
 	for _, ch := range channels {
-		if m, ok := f.connectionIdByChannel[ch]; ok {
+		if m, ok := f.connectionIDByChannel[ch]; ok {
 			m.Delete(connID)
 		}
 	}
@@ -185,7 +180,7 @@ func (f *subscribeFilter) RemoveConnectionIDFromChannels(connID string) {
 
 func (f *subscribeFilter) RemoveSubscriptionIDFromConnectionID(connID, subID string) {
 	var ch string
-	m1, ok := f.channelByConnectionId[connID]
+	m1, ok := f.channelByConnectionID[connID]
 	if !ok {
 		return
 	}
@@ -199,7 +194,7 @@ func (f *subscribeFilter) RemoveSubscriptionIDFromConnectionID(connID, subID str
 		return
 	}
 	m1.Delete(ch)
-	m2, ok := f.connectionIdByChannel[ch]
+	m2, ok := f.connectionIDByChannel[ch]
 	if !ok {
 		return
 	}
@@ -210,7 +205,7 @@ func (f *subscribeFilter) RemoveSubscriptionIDFromConnectionID(connID, subID str
 
 func (f *subscribeFilter) GetChannelRegisteredConnectionIDs(channel string) map[string]string {
 	founds := map[string]string{}
-	if m, ok := f.connectionIdByChannel[channel]; ok {
+	if m, ok := f.connectionIDByChannel[channel]; ok {
 		m.Range(func(k, v interface{}) bool {
 			founds[k.(string)] = v.(string)
 			return true
