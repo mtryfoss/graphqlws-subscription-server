@@ -185,6 +185,16 @@ func getSchema() (*graphql.Schema, error) {
 						},
 						Resolve: resolve,
 					},
+					"notification": &graphql.Field{
+						Type: graphql.NewObject(graphql.ObjectConfig{
+							Name: "Notification",
+							Fields: graphql.Fields{
+								"id":      &graphql.Field{Type: graphql.NewNonNull(graphql.ID)},
+								"content": &graphql.Field{Type: graphql.NewNonNull(graphql.String)},
+							},
+						}),
+						Resolve: resolve,
+					},
 				},
 			},
 		),
