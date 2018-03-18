@@ -6,6 +6,8 @@ import (
 	"flag"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"sync"
 
@@ -66,9 +68,9 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "index.html")
-	})
+	d, _ := os.Getwd()
+	mux.Handle("/", http.FileServer(http.Dir(filepath.Join(d, "build"))))
+
 	mux.Handle("/graphql", handler.New(&handler.Config{
 		Schema:   schema,
 		Pretty:   true,
