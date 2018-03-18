@@ -1,7 +1,7 @@
 import React from 'react';
 import { observer } from 'mobx-react';
 import { observable } from 'mobx';
-import RaisedButton from 'material-ui/RaisedButton';
+import Button from 'material-ui/Button';
 import TextField from 'material-ui/TextField';
 import Paper from 'material-ui/Paper';
 
@@ -70,7 +70,7 @@ const NewChannel = observer((props) => {
   return (
     <Paper style={paperStyle} zDepth={2}>
       <TextField hintText="type name you want to talk to" value={w.newName} onChange={(e) => w.onNewNameChanged(e)} />
-      <RaisedButton label="+" primary={true} style={buttonStyle} onClick={(e) => w.addChannel(e)} />
+      <Button variant="raised" label="+" color="primary" style={buttonStyle} onClick={(e) => w.addChannel(e)} />
     </Paper>
   );
 });

@@ -1,9 +1,9 @@
 import React from 'react';
 import { observer } from 'mobx-react';
 import { observable } from 'mobx';
-import RaisedButton from 'material-ui/RaisedButton';
+import Button from 'material-ui/Button';
 import TextField from 'material-ui/TextField';
-import {Card, CardHeader, CardActions} from 'material-ui/Card';
+import {Card, CardHeader, CardContent} from 'material-ui/Card';
 import {List, ListItem} from 'material-ui/List';
 
 const notificationStyle = {
@@ -43,18 +43,18 @@ const Notification = observer((props) => {
     <Card style={notificationStyle}>
       <CardHeader
         title="お知らせ"
-        subtitle="全員に対しての通知はここに入ります"
+        subheader="全員に対しての通知はここに入ります"
       />
-      <CardActions>
+      <CardContent>
         <List style={{height:160}}>
           {w.messages.map((msg) => <ListItem primaryText={msg} />)}
         </List>
 
         <div className="Notification-post">
           <TextField hintText="" value={w.message} onChange={(e) => w.onMessageChanged(e)} />
-          <RaisedButton label="送信" primary={true} style={buttonStyle} onClick={() => w.post()} />
+          <Button variant="raised" label="送信" color="primary" style={buttonStyle} onClick={() => w.post()} />
         </div>
-      </CardActions>
+      </CardContent>
     </Card>
   );
 });

@@ -1,10 +1,9 @@
 import React from 'react'
 import { observer } from 'mobx-react'
 import { observable } from 'mobx'
-import RaisedButton from 'material-ui/RaisedButton';
+import Button from 'material-ui/Button';
 import TextField from 'material-ui/TextField';
-import {Card, CardHeader, CardActions} from 'material-ui/Card';
-import Paper from 'material-ui/Paper';
+import {Card, CardActions} from 'material-ui/Card';
 import styled, { css } from 'styled-components';
 
 const style = {
@@ -61,7 +60,7 @@ const Name = observer((props) => {
       <CardActions style={style.nameInner}>
         <EntryForm isWalkedIn={w.isWalkedIn}>
           <TextField hintText="type your name ascii only" value={w.name} onChange={(e) => w.onNameChanged(e)} />
-          <RaisedButton label="入室" primary={true} style={style.button} onClick={(e) => w.walkIn(e)} />
+          <Button variant="raised" label="入室" color="primary" style={style.button} onClick={(e) => w.walkIn(e)} />
         </EntryForm>
         <NameDisplay isWalkedIn={w.isWalkedIn}>{w.name} さんが入室しています</NameDisplay>
       </CardActions>

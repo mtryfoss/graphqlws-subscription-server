@@ -1,9 +1,6 @@
 import React from 'react';
-import lightBaseTheme from 'material-ui/styles/baseThemes/lightBaseTheme';
-import MuiThemeProvider from 'material-ui/styles/MuiThemeProvider';
-import getMuiTheme from 'material-ui/styles/getMuiTheme';
+import { MuiThemeProvider, createMuiTheme } from 'material-ui/styles';
 import AppBar from 'material-ui/AppBar';
-
 import Name, { NameWatcher } from './Name';
 import { NewChannel, ChannelList, ChannelWatcher } from './Channel';
 import Notification, { NotificationWatcher } from './Notification';
@@ -16,9 +13,11 @@ nameWatcher.onRegisterCallback = () => {
 
 };
 
+const theme = createMuiTheme();
+
 const App = (props) => {
   return (
-    <MuiThemeProvider muiTheme={getMuiTheme(lightBaseTheme)}>
+    <MuiThemeProvider theme={theme}>
       <AppBar title="GraphQL Subscription Server example" />
       <Name watcher={nameWatcher} />
       <Notification watcher={notifWatcher} />
