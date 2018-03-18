@@ -37,8 +37,8 @@ class NotificationWatcher {
   }
 }
 
-const Notification = observer((props) => {
-  const w = props.watcher;
+export default observer((props) => {
+  const { watcher } = props;
   return (
     <Card>
       <CardHeader
@@ -47,17 +47,16 @@ const Notification = observer((props) => {
       />
       <CardContent>
         <List style={{height:160}}>
-          {w.messages.map((msg) => <ListItem><ListItemText primaryText={msg} /></ListItem>)}
+          {watcher.messages.map((msg) => <ListItem><ListItemText primaryText={msg} /></ListItem>)}
         </List>
 
         <CardActions>
-          <TextField hintText="" value={w.message} onChange={(e) => w.onMessageChanged(e)} />
-          <Button variant="raised" color="primary" style={buttonStyle} onClick={() => w.post()}>送信</Button>
+          <TextField hintText="" value={watcher.message} onChange={(e) => watcher.onMessageChanged(e)} />
+          <Button variant="raised" color="primary" style={buttonStyle} onClick={() => watcher.post()}>送信</Button>
         </CardActions>
       </CardContent>
     </Card>
   );
 });
 
-export default Notification
 export { NotificationWatcher }
