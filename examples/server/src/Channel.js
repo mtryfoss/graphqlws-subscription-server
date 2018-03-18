@@ -70,7 +70,7 @@ const NewChannel = observer((props) => {
   return (
     <Paper style={paperStyle} zDepth={2}>
       <TextField hintText="type name you want to talk to" value={w.newName} onChange={(e) => w.onNewNameChanged(e)} />
-      <Button variant="raised" label="+" color="primary" style={buttonStyle} onClick={(e) => w.addChannel(e)} />
+      <Button variant="raised" color="primary" style={buttonStyle} onClick={(e) => w.addChannel(e)}>+</Button>
     </Paper>
   );
 });

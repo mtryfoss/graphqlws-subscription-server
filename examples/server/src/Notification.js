@@ -3,8 +3,8 @@ import { observer } from 'mobx-react';
 import { observable } from 'mobx';
 import Button from 'material-ui/Button';
 import TextField from 'material-ui/TextField';
-import {Card, CardHeader, CardContent} from 'material-ui/Card';
-import {List, ListItem} from 'material-ui/List';
+import Card, {CardHeader, CardContent, CardActions} from 'material-ui/Card';
+import List, { ListItem, ListItemText } from 'material-ui/List';
 
 const notificationStyle = {
   margin: 16,
@@ -40,20 +40,20 @@ class NotificationWatcher {
 const Notification = observer((props) => {
   const w = props.watcher;
   return (
-    <Card style={notificationStyle}>
+    <Card>
       <CardHeader
         title="お知らせ"
         subheader="全員に対しての通知はここに入ります"
       />
       <CardContent>
         <List style={{height:160}}>
-          {w.messages.map((msg) => <ListItem primaryText={msg} />)}
+          {w.messages.map((msg) => <ListItem><ListItemText primaryText={msg} /></ListItem>)}
         </List>
 
-        <div className="Notification-post">
+        <CardActions>
           <TextField hintText="" value={w.message} onChange={(e) => w.onMessageChanged(e)} />
-          <Button variant="raised" label="送信" color="primary" style={buttonStyle} onClick={() => w.post()} />
-        </div>
+          <Button variant="raised" color="primary" style={buttonStyle} onClick={() => w.post()}>送信</Button>
+        </CardActions>
       </CardContent>
     </Card>
   );

@@ -3,7 +3,7 @@ import { observer } from 'mobx-react'
 import { observable } from 'mobx'
 import Button from 'material-ui/Button';
 import TextField from 'material-ui/TextField';
-import {Card, CardActions} from 'material-ui/Card';
+import Card, {CardContent, CardActions} from 'material-ui/Card';
 import styled, { css } from 'styled-components';
 
 const style = {
@@ -53,20 +53,21 @@ class NameWatcher {
   }
 }
 
-const Name = observer((props) => {
-  const w = props.watcher
+export default observer((props) => {
+  const { watcher } = props
   return (
-    <Card style={style.name}>
-      <CardActions style={style.nameInner}>
-        <EntryForm isWalkedIn={w.isWalkedIn}>
-          <TextField hintText="type your name ascii only" value={w.name} onChange={(e) => w.onNameChanged(e)} />
-          <Button variant="raised" label="入室" color="primary" style={style.button} onClick={(e) => w.walkIn(e)} />
-        </EntryForm>
-        <NameDisplay isWalkedIn={w.isWalkedIn}>{w.name} さんが入室しています</NameDisplay>
-      </CardActions>
+    <Card>
+      <CardContent>
+        <CardActions>
+          <EntryForm isWalkedIn={watcher.isWalkedIn}>
+            <TextField hintText="type your name ascii only" value={watcher.name} onChange={(e) => watcher.onNameChanged(e)} />
+            <Button variant="raised" color="primary" style={style.button} onClick={(e) => watcher.walkIn(e)}>入室</Button>
+          </EntryForm>
+        </CardActions>
+        <NameDisplay isWalkedIn={watcher.isWalkedIn}>{watcher.name} さんが入室しています</NameDisplay>
+      </CardContent>
     </Card>
   );
 });
 
-export default Name
 export { NameWatcher }
